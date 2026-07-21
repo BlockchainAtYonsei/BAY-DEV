@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/session";
 import { quizStore } from "@/lib/quizStore";
 import { parseQuiz } from "@/lib/quiz/parse";
-import { findTrack } from "@/lib/tracks";
+import { parseQuizInput } from "@/lib/quiz/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -36,37 +36,24 @@ export async function PUT(request: Request, { params }: Params) {
     return NextResponse.json({ error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
 
-  const input: Parameters<typeof quizStore.update>[1] = {};
+  // 부분 수정도 전체 검증을 통과하도록 기존 값과 병합해 검증한다
+  const merged = {
+    slug: body.slug ?? quiz.slug,
+    title: body.title ?? quiz.title,
+    badge: body.badge ?? quiz.badge,
+    track: body.track ?? quiz.track,
+    markdown: body.markdown ?? quiz.markdown,
+    published: body.published ?? quiz.published
+  };
+  const parsed = parseQuizInput(merged);
+  if ("error" in parsed) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+  if (parsed.input.slug !== quiz.slug && (await quizStore.findBySlug(parsed.input.slug))) {
+    return NextResponse.json({ error: "이미 사용 중인 slug입니다." }, { status: 409 });
+  }
 
-  if (typeof body.slug === "string" && body.slug !== quiz.slug) {
-    if (!/^[a-z0-9-]{2,64}$/.test(body.slug)) {
-      return NextResponse.json({ error: "slug는 소문자·숫자·하이픈 2~64자여야 합니다." }, { status: 400 });
-    }
-    if (await quizStore.findBySlug(body.slug)) {
-      return NextResponse.json({ error: "이미 사용 중인 slug입니다." }, { status: 409 });
-    }
-    input.slug = body.slug;
-  }
-  if (typeof body.title === "string" && body.title.trim()) input.title = body.title.trim();
-  if (typeof body.badge === "string" && body.badge.trim()) input.badge = body.badge.trim();
-  if (typeof body.track === "string") {
-    if (body.track && !findTrack(body.track)) {
-      return NextResponse.json({ error: "존재하지 않는 트랙입니다." }, { status: 400 });
-    }
-    input.track = body.track;
-  }
-  if (typeof body.markdown === "string") {
-    if (parseQuiz(body.markdown).questions.length === 0) {
-      return NextResponse.json(
-        { error: "문항이 없습니다. `## 질문` 형식으로 문항을 추가해 주세요." },
-        { status: 400 }
-      );
-    }
-    input.markdown = body.markdown;
-  }
-  if (typeof body.published === "boolean") input.published = body.published;
-
-  const updated = await quizStore.update(id, input);
+  const updated = await quizStore.update(id, parsed.input);
   return NextResponse.json({ quiz: updated });
 }
 
