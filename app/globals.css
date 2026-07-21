@@ -398,6 +398,21 @@ textarea::placeholder {
   padding: 0 18px;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+/* 링크(a 태그)를 버튼처럼 쓸 때 전역 a 스타일(word-break 등)을 덮어쓴다 */
+a.primaryButton,
+a.ghostButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+a.ghostButton {
+  color: var(--ink);
 }
 
 .primaryButton {
@@ -516,10 +531,17 @@ textarea::placeholder {
 
 .adminHeader {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 20px;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.adminHeader h1 {
+  flex-shrink: 0;
+  white-space: nowrap;
+  word-break: keep-all;
 }
 
 .adminActions {
