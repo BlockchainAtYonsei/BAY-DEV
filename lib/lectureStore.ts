@@ -7,6 +7,7 @@ export type Lecture = {
   badge: string;
   track: string;
   order: number;
+  format: string;
   markdown: string;
   published: boolean;
   createdAt: string;
@@ -20,6 +21,7 @@ type LectureRow = {
   badge: string;
   track: string;
   order: number;
+  format: string;
   markdown: string;
   published: boolean;
   createdAt: Date;
@@ -40,6 +42,7 @@ export type LectureInput = {
   badge: string;
   track: string;
   order: number;
+  format: string;
   markdown: string;
   published: boolean;
 };

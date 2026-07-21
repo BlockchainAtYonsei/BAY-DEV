@@ -27,6 +27,7 @@ export async function PUT(request: Request, { params }: Params) {
     badge: body.badge ?? lecture.badge,
     track: body.track ?? lecture.track,
     order: body.order ?? lecture.order,
+    format: body.format ?? lecture.format,
     markdown: body.markdown ?? lecture.markdown,
     published: body.published ?? lecture.published
   };

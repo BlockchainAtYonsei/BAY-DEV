@@ -44,6 +44,7 @@ type EditorState = {
   badge: string;
   track: string;
   order: number;
+  format: "markdown" | "html";
   markdown: string;
   published: boolean;
 };
@@ -56,6 +57,7 @@ function emptyEditor(): EditorState {
     badge: "강의록",
     track: "ethereum-core",
     order: 1,
+    format: "markdown",
     markdown: SAMPLE_MARKDOWN,
     published: false
   };
@@ -105,6 +107,7 @@ export default function LectureAdmin() {
             badge: editor.badge,
             track: editor.track,
             order: editor.order,
+            format: editor.format,
             markdown: editor.markdown,
             published: editor.published
           })
@@ -165,6 +168,7 @@ export default function LectureAdmin() {
             badge: lecture.badge,
             track: lecture.track,
             order: lecture.order,
+            format: lecture.format === "html" ? "html" : "markdown",
             markdown: lecture.markdown,
             published: lecture.published
           }
@@ -230,7 +234,10 @@ export default function LectureAdmin() {
                     lecture.slug
                   )}
                 </td>
-                <td>{findTrack(lecture.track)?.title || "홈 단독"}</td>
+                <td>
+                  {findTrack(lecture.track)?.title || "홈 단독"}
+                  {lecture.format === "html" ? " · 인터랙티브" : ""}
+                </td>
                 <td>{lecture.published ? "게시됨" : "비공개"}</td>
                 <td className="quizRowActions">
                   <button className="ghostButton" type="button" onClick={() => openEditor(lecture)}>
@@ -268,20 +275,26 @@ export default function LectureAdmin() {
                 md 파일 업로드 (내용을 아래 편집기로 불러옵니다)
                 <input
                   type="file"
-                  accept=".md,.markdown,text/markdown,text/plain"
+                  accept=".md,.markdown,.html,.htm,text/markdown,text/plain,text/html"
                   onChange={async (event) => {
                     const file = event.target.files?.[0];
                     if (!file) return;
                     const text = await file.text();
                     setEditor((prev) => {
                       if (!prev) return prev;
+                      const isHtml = /\.(html?|htm)$/i.test(file.name);
                       const fromName = file.name
-                        .replace(/\.(md|markdown|txt)$/i, "")
+                        .replace(/\.(md|markdown|txt|html?|htm)$/i, "")
                         .toLowerCase()
                         .replace(/[^a-z0-9]+/g, "-")
                         .replace(/^-+|-+$/g, "")
                         .slice(0, 64);
-                      return { ...prev, markdown: text, slug: prev.slug || fromName };
+                      return {
+                        ...prev,
+                        markdown: text,
+                        format: isHtml ? "html" : prev.format,
+                        slug: prev.slug || fromName
+                      };
                     });
                     event.target.value = "";
                   }}
@@ -338,7 +351,22 @@ export default function LectureAdmin() {
                 </select>
               </label>
               <label>
-                강의록 마크다운
+                형식
+                <select
+                  value={editor.format}
+                  onChange={(event) =>
+                    setEditor({
+                      ...editor,
+                      format: event.target.value === "html" ? "html" : "markdown"
+                    })
+                  }
+                >
+                  <option value="markdown">마크다운 강의록</option>
+                  <option value="html">HTML 인터랙티브 자료</option>
+                </select>
+              </label>
+              <label>
+                {editor.format === "html" ? "HTML 원문" : "강의록 마크다운"}
                 <textarea
                   className="quizMarkdownInput"
                   value={editor.markdown}
@@ -357,7 +385,11 @@ export default function LectureAdmin() {
                 <button
                   className="primaryButton"
                   type="button"
-                  disabled={busy || !editor.slug || preview.sections.length === 0}
+                  disabled={
+                    busy ||
+                    !editor.slug ||
+                    (editor.format === "markdown" && preview.sections.length === 0)
+                  }
                   onClick={saveEditor}
                 >
                   저장
@@ -376,7 +408,15 @@ export default function LectureAdmin() {
 
             <div className="quizPreview">
               <h3>미리보기 — {preview.title || editor.title || editor.slug}</h3>
-              <LectureView lecture={preview} />
+              {editor.format === "html" ? (
+                <iframe
+                  className="lecturePreviewFrame"
+                  srcDoc={editor.markdown}
+                  title="HTML 미리보기"
+                />
+              ) : (
+                <LectureView lecture={preview} />
+              )}
             </div>
           </div>
         </section>

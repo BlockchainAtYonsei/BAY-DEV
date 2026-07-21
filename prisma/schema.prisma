@@ -33,6 +33,8 @@ model Lecture {
   track     String   @default("")
   /** 트랙 안에서의 정렬 순서 (회차) */
   order     Int      @default(0)
+  /** markdown: 섹션형 강의록, html: 인터랙티브 자료 (원문 전체를 content에 저장) */
+  format    String   @default("markdown")
   markdown  String
   published Boolean  @default(false)
   createdAt DateTime @default(now())

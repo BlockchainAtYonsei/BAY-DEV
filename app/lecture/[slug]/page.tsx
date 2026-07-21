@@ -16,6 +16,19 @@ export default async function LecturePage({
   const lecture = await lectureStore.findBySlug(slug);
   if (!lecture || !lecture.published) notFound();
 
+  // 인터랙티브 HTML 자료는 전체 화면 iframe으로 보여준다
+  if (lecture.format === "html") {
+    return (
+      <main className="lectureFrameShell">
+        <iframe
+          className="lectureFrame"
+          src={`/lecture/${lecture.slug}/raw`}
+          title={lecture.title}
+        />
+      </main>
+    );
+  }
+
   const parsed = parseLecture(lecture.markdown);
 
   return (
