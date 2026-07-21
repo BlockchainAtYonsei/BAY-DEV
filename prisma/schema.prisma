@@ -13,6 +13,31 @@ model User {
   createdAt DateTime @default(now())
 }
 
+model Quiz {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  title     String
+  badge     String   @default("퀴즈 과제")
+  markdown  String
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QuizResponse {
+  id        String   @id @default(uuid())
+  quizId    String
+  wallet    String
+  name      String
+  answers   String
+  score     Int      @default(0)
+  total     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([quizId, wallet])
+}
+
 model Submission {
   id        String   @id @default(uuid())
   wallet    String
