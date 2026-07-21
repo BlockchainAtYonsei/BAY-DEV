@@ -19,9 +19,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(ellipse 120% 70% at 50% -10%, #1a2450 0%, #0b1230 45%, #050814 100%)
-    fixed #050814;
+  background: #050814;
   color: var(--ink);
   font-family:
     Arial,
@@ -38,12 +36,14 @@ body {
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
+  background: radial-gradient(ellipse 120% 70% at 50% -10%, #1a2450 0%, #0b1230 45%, #050814 100%);
 }
 
 .stars {
   position: absolute;
   inset: 0;
   background-repeat: repeat;
+  will-change: opacity;
 }
 
 .starsFar {
@@ -91,6 +91,7 @@ body {
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.35);
   opacity: 0;
   transform: rotate(-32deg);
+  will-change: transform, opacity;
 }
 
 .star1 {
@@ -260,7 +261,6 @@ a {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--panel);
-  backdrop-filter: blur(6px);
   box-shadow: 0 12px 40px rgba(2, 6, 20, 0.5);
   color: var(--ink);
   text-decoration: none;
@@ -313,7 +313,6 @@ a {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--panel);
-  backdrop-filter: blur(6px);
   box-shadow: 0 12px 40px rgba(2, 6, 20, 0.5);
 }
 
@@ -952,7 +951,6 @@ td {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--panel);
-  backdrop-filter: blur(6px);
   box-shadow: 0 12px 40px rgba(2, 6, 20, 0.5);
 }
 

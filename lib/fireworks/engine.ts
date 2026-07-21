@@ -55,7 +55,8 @@ export class FireworksEngine {
 
   constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // 배경 장식이라 1.5배 픽셀 밀도면 충분하다 — 레티나에서 필레이트를 크게 아낀다
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.texture = makeGlowTexture();
     this.resize();
     window.addEventListener("resize", this.resize);
@@ -259,6 +260,7 @@ export class FireworksEngine {
       this.spawnTimer = SPAWN_INTERVAL;
     }
 
+    const hadFireworks = this.fireworks.length > 0;
     this.fireworks = this.fireworks.filter((fw) => {
       const alive = this.updateFirework(fw, dt);
       if (!alive) {
@@ -269,7 +271,10 @@ export class FireworksEngine {
       return alive;
     });
 
-    this.renderer.render(this.scene, this.camera);
+    // 불꽃이 없으면 렌더링을 쉰다 (마지막 프레임만 한 번 지워준다)
+    if (this.fireworks.length > 0 || hadFireworks) {
+      this.renderer.render(this.scene, this.camera);
+    }
   };
 
   dispose() {
