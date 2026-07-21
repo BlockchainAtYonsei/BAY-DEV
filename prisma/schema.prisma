@@ -25,6 +25,20 @@ model Quiz {
   updatedAt DateTime @updatedAt
 }
 
+model Lecture {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  title     String
+  badge     String   @default("강의록")
+  track     String   @default("")
+  /** 트랙 안에서의 정렬 순서 (회차) */
+  order     Int      @default(0)
+  markdown  String
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model QuizResponse {
   id        String   @id @default(uuid())
   quizId    String
