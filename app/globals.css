@@ -596,6 +596,8 @@ td {
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
+  /* 한글이 글자 단위로 꺾이지 않게 단어 단위 줄바꿈 (URL 링크는 전역 a 스타일로 계속 잘라 줄바꿈) */
+  word-break: keep-all;
 }
 
 tr:last-child td {
