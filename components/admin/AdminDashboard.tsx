@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import AdminLoginForm from "@/components/admin/AdminLoginForm";
 import AdminToolbar from "@/components/admin/AdminToolbar";
@@ -41,6 +42,9 @@ export default function AdminDashboard() {
     <main className="adminShell">
       <section className="adminHeader">
         <h1>제출 현황</h1>
+        <Link className="ghostButton" href="/admin/quizzes">
+          퀴즈 관리
+        </Link>
         <AdminToolbar
           filter={filter}
           weeks={weeks}
