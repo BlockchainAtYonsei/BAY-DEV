@@ -3,7 +3,17 @@ import Nav from "@/components/Nav";
 import PageHeader from "@/components/PageHeader";
 import { TRACKS } from "@/lib/tracks";
 
-export default function HomeLanding() {
+type QuizCard = {
+  slug: string;
+  title: string;
+  badge: string;
+};
+
+type Props = {
+  quizzes?: QuizCard[];
+};
+
+export default function HomeLanding({ quizzes = [] }: Props) {
   return (
     <main className="shell narrow">
       <PageHeader
@@ -18,6 +28,13 @@ export default function HomeLanding() {
             <span className="trackBadge">{track.badge}</span>
             <strong>{track.title}</strong>
             <p>{track.description}</p>
+          </Link>
+        ))}
+        {quizzes.map((quiz) => (
+          <Link key={quiz.slug} href={`/quiz/${quiz.slug}`} className="trackCard">
+            <span className="trackBadge">{quiz.badge}</span>
+            <strong>{quiz.title}</strong>
+            <p>문항에 응답하고 제출해 주세요.</p>
           </Link>
         ))}
       </div>
