@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import BackButton from "@/components/BackButton";
 import Nav from "@/components/Nav";
 import PageHeader from "@/components/PageHeader";
 import LectureView from "@/components/lecture/LectureView";
@@ -20,6 +21,10 @@ export default async function LecturePage({
   if (lecture.format === "html") {
     return (
       <main className="lectureFrameShell">
+        <div className="lectureFrameBar">
+          <BackButton fallback="/lectures" label="강의록" />
+          <span>{lecture.title}</span>
+        </div>
         <iframe
           className="lectureFrame"
           src={`/lecture/${lecture.slug}/raw`}
@@ -33,6 +38,7 @@ export default async function LecturePage({
 
   return (
     <main className="shell lectureShell">
+      <BackButton fallback="/lectures" label="강의록 목록" />
       <PageHeader
         badge={lecture.badge}
         title={parsed.title || lecture.title}

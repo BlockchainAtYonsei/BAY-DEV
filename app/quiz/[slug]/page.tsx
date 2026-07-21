@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import BackButton from "@/components/BackButton";
 import Nav from "@/components/Nav";
 import PageHeader from "@/components/PageHeader";
 import QuizForm from "@/components/quiz/QuizForm";
@@ -17,6 +18,10 @@ export default async function QuizPage({
 
   return (
     <main className="shell narrow">
+      <BackButton
+        fallback={quiz.track ? `/assignments/${quiz.track}` : "/"}
+        label="과제로"
+      />
       <PageHeader
         badge={quiz.badge}
         title={quiz.title}
