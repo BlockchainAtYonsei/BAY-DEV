@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/session";
 import { quizStore } from "@/lib/quizStore";
 import { parseQuiz } from "@/lib/quiz/parse";
+import { findTrack } from "@/lib/tracks";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -48,6 +49,12 @@ export async function PUT(request: Request, { params }: Params) {
   }
   if (typeof body.title === "string" && body.title.trim()) input.title = body.title.trim();
   if (typeof body.badge === "string" && body.badge.trim()) input.badge = body.badge.trim();
+  if (typeof body.track === "string") {
+    if (body.track && !findTrack(body.track)) {
+      return NextResponse.json({ error: "존재하지 않는 트랙입니다." }, { status: 400 });
+    }
+    input.track = body.track;
+  }
   if (typeof body.markdown === "string") {
     if (parseQuiz(body.markdown).questions.length === 0) {
       return NextResponse.json(

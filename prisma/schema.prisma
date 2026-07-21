@@ -18,6 +18,7 @@ model Quiz {
   slug      String   @unique
   title     String
   badge     String   @default("퀴즈 과제")
+  track     String   @default("")
   markdown  String
   published Boolean  @default(false)
   createdAt DateTime @default(now())

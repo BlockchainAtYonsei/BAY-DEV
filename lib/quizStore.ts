@@ -6,6 +6,7 @@ export type Quiz = {
   slug: string;
   title: string;
   badge: string;
+  track: string;
   markdown: string;
   published: boolean;
   createdAt: string;
@@ -29,6 +30,7 @@ type QuizRow = {
   slug: string;
   title: string;
   badge: string;
+  track: string;
   markdown: string;
   published: boolean;
   createdAt: Date;
@@ -99,6 +101,7 @@ export const quizStore = {
     slug: string;
     title: string;
     badge: string;
+    track: string;
     markdown: string;
     published: boolean;
   }): Promise<Quiz> {
@@ -112,6 +115,7 @@ export const quizStore = {
       slug: string;
       title: string;
       badge: string;
+      track: string;
       markdown: string;
       published: boolean;
     }>

@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/session";
 import { quizStore } from "@/lib/quizStore";
 import { parseQuiz } from "@/lib/quiz/parse";
+import { findTrack } from "@/lib/tracks";
 
 function parseQuizInput(body: unknown) {
   if (!body || typeof body !== "object") return null;
-  const { slug, title, badge, markdown, published } = body as Record<string, unknown>;
+  const { slug, title, badge, track, markdown, published } = body as Record<string, unknown>;
   if (typeof slug !== "string" || !/^[a-z0-9-]{2,64}$/.test(slug)) {
     return { error: "slug는 소문자·숫자·하이픈 2~64자여야 합니다." } as const;
   }
@@ -16,6 +17,10 @@ function parseQuizInput(body: unknown) {
   if (parsed.questions.length === 0) {
     return { error: "문항이 없습니다. `## 질문` 형식으로 문항을 추가해 주세요." } as const;
   }
+  const resolvedTrack = typeof track === "string" ? track : "";
+  if (resolvedTrack && !findTrack(resolvedTrack)) {
+    return { error: "존재하지 않는 트랙입니다." } as const;
+  }
   const resolvedTitle =
     (typeof title === "string" && title.trim()) || parsed.title || slug;
   return {
@@ -23,6 +28,7 @@ function parseQuizInput(body: unknown) {
       slug,
       title: resolvedTitle,
       badge: typeof badge === "string" && badge.trim() ? badge.trim() : "퀴즈 과제",
+      track: resolvedTrack,
       markdown,
       published: published === true
     }

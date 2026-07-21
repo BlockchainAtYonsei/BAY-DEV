@@ -6,6 +6,7 @@ import AdminLoginForm from "@/components/admin/AdminLoginForm";
 import Markdown from "@/components/quiz/Markdown";
 import { parseQuiz, type QuizAnswer, type QuizQuestion } from "@/lib/quiz/parse";
 import type { Quiz, QuizResponse } from "@/lib/quizStore";
+import { TRACKS, findTrack } from "@/lib/tracks";
 
 type QuizListItem = Quiz & { questionCount: number; responseCount: number };
 
@@ -33,6 +34,7 @@ type EditorState = {
   slug: string;
   title: string;
   badge: string;
+  track: string;
   markdown: string;
   published: boolean;
 };
@@ -43,6 +45,7 @@ function emptyEditor(): EditorState {
     slug: "",
     title: "",
     badge: "퀴즈 과제",
+    track: "ethereum-core",
     markdown: SAMPLE_MARKDOWN,
     published: false
   };
@@ -95,6 +98,7 @@ export default function QuizAdmin() {
             slug: editor.slug,
             title: editor.title,
             badge: editor.badge,
+            track: editor.track,
             markdown: editor.markdown,
             published: editor.published
           })
@@ -169,6 +173,7 @@ export default function QuizAdmin() {
             slug: quiz.slug,
             title: quiz.title,
             badge: quiz.badge,
+            track: quiz.track,
             markdown: quiz.markdown,
             published: quiz.published
           }
@@ -206,6 +211,7 @@ export default function QuizAdmin() {
             <tr>
               <th>제목</th>
               <th>slug</th>
+              <th>트랙</th>
               <th>문항</th>
               <th>응답</th>
               <th>상태</th>
@@ -215,7 +221,7 @@ export default function QuizAdmin() {
           <tbody>
             {quizzes.length === 0 && (
               <tr>
-                <td colSpan={6}>아직 퀴즈가 없습니다. 새 퀴즈를 만들어 보세요.</td>
+                <td colSpan={7}>아직 퀴즈가 없습니다. 새 퀴즈를 만들어 보세요.</td>
               </tr>
             )}
             {quizzes.map((quiz) => (
@@ -230,6 +236,7 @@ export default function QuizAdmin() {
                     quiz.slug
                   )}
                 </td>
+                <td>{findTrack(quiz.track)?.title || "홈 단독"}</td>
                 <td>{quiz.questionCount}</td>
                 <td>{quiz.responseCount}</td>
                 <td>{quiz.published ? "게시됨" : "비공개"}</td>
@@ -287,6 +294,20 @@ export default function QuizAdmin() {
                   value={editor.badge}
                   onChange={(event) => setEditor({ ...editor, badge: event.target.value })}
                 />
+              </label>
+              <label>
+                트랙 (퀴즈가 노출될 과제)
+                <select
+                  value={editor.track}
+                  onChange={(event) => setEditor({ ...editor, track: event.target.value })}
+                >
+                  {TRACKS.map((track) => (
+                    <option key={track.slug} value={track.slug}>
+                      {track.title}
+                    </option>
+                  ))}
+                  <option value="">홈 화면 단독 노출</option>
+                </select>
               </label>
               <label>
                 md 파일 업로드 (내용을 아래 편집기로 불러옵니다)
