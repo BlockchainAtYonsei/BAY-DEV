@@ -11,7 +11,10 @@ export const metadata = {
 };
 
 export default async function LecturesPage() {
-  const lectures = await lectureStore.listPublished();
+  // 트랙 미지정(임베드 전용) 자료는 목록에 노출하지 않는다
+  const lectures = (await lectureStore.listPublished()).filter(
+    (lecture) => lecture.track !== ""
+  );
 
   return (
     <main className="shell narrow">
@@ -30,9 +33,7 @@ export default async function LecturesPage() {
             <span className="trackBadge">{lecture.badge}</span>
             <strong>{lecture.title}</strong>
             <p>
-              {findTrack(lecture.track)
-                ? `${findTrack(lecture.track)!.title} 트랙`
-                : "공통 자료"}
+              {findTrack(lecture.track)?.title || "공통"} 트랙
               {lecture.format === "html" ? " · 인터랙티브" : ""}
             </p>
           </Link>

@@ -235,7 +235,7 @@ export default function LectureAdmin() {
                   )}
                 </td>
                 <td>
-                  {findTrack(lecture.track)?.title || "홈 단독"}
+                  {findTrack(lecture.track)?.title || "임베드 전용"}
                   {lecture.format === "html" ? " · 인터랙티브" : ""}
                 </td>
                 <td>{lecture.published ? "게시됨" : "비공개"}</td>
@@ -337,7 +337,7 @@ export default function LectureAdmin() {
                 />
               </label>
               <label>
-                트랙 (강의록이 노출될 과제)
+                트랙
                 <select
                   value={editor.track}
                   onChange={(event) => setEditor({ ...editor, track: event.target.value })}
@@ -347,7 +347,7 @@ export default function LectureAdmin() {
                       {track.title}
                     </option>
                   ))}
-                  <option value="">홈 화면 단독 노출</option>
+                  <option value="">목록 미노출 (임베드 전용)</option>
                 </select>
               </label>
               <label>
