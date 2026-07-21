@@ -1,0 +1,17 @@
+# dependencies / build
+node_modules/
+.next/
+tsconfig.tsbuildinfo
+npm-debug.log*
+
+# 환경변수 (비밀번호·세션 시크릿)
+.env
+.env.*
+
+# 운영 데이터 (SQLite DB, 가입자 정보)
+data/
+!data/.gitkeep
+
+# misc
+*.log
+.DS_Store

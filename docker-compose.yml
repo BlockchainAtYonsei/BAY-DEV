@@ -1,0 +1,14 @@
+services:
+  bay-dev:
+    build: .
+    container_name: bay-dev
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: file:/app/data/bay18.db
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD를 설정하세요}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET을 설정하세요}
+    volumes:
+      # 호스트의 data/ 디렉토리를 그대로 사용 → 기존 가입/제출 데이터 유지
+      - ./data:/app/data
+    restart: unless-stopped
