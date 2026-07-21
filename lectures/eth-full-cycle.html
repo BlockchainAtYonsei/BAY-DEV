@@ -253,19 +253,9 @@ wLabel.position.copy(walletPos).add(new THREE.Vector3(0,.85,0)); root.add(wLabel
 root.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([walletPos,positions[MY]]),
   new THREE.LineBasicMaterial({color:0x3A3A66,transparent:true,opacity:.9})));
 
-// deposit contract (EL smart contract) — gold cube on the opposite side
-const contractPos=positions[MY].clone().multiplyScalar(-1.6); contractPos.y+=2;
-const contract=new THREE.Mesh(new THREE.BoxGeometry(.9,.9,.9),
-  new THREE.MeshLambertMaterial({color:0x2A2A4A,emissive:C.gold,emissiveIntensity:.18}));
-contract.position.copy(contractPos); root.add(contract);
-const contractEdges=new THREE.LineSegments(new THREE.EdgesGeometry(contract.geometry),
-  new THREE.LineBasicMaterial({color:C.gold}));
-contractEdges.position.copy(contractPos); root.add(contractEdges);
-const cLabel=textSprite('예치 컨트랙트 (EL)','#FFD98A',4.6);
-cLabel.position.copy(contractPos).add(new THREE.Vector3(0,1.05,0)); root.add(cLabel);
-
-// blockchain lane (in scene coords, does not rotate)
-const CHAIN_Y=-10.4, CHAIN_X0=-9.5, CHAIN_DX=2.0;
+// blockchain lane (오른쪽 세로 기둥, scene 좌표 — HUD와 겹치지 않게 화면 크기에 맞춰 재배치)
+const CHAIN_DY=2.0, chainLinks=[];
+let CHAIN_X=13, CHAIN_Y0=-4.6;
 const chainCubes=[];
 function makeBlockMesh(){
   const g=new THREE.Group();
@@ -277,29 +267,41 @@ function makeBlockMesh(){
     new THREE.MeshLambertMaterial({color:C.mint,emissive:C.mint,emissiveIntensity:.45}));
   g.add(outer,oEdge,inner); return g;
 }
+const gLabel=textSprite('제네시스','#8A8FB5',2.8); scene.add(gLabel);
+const chLabel=textSprite('블록체인','#C9CDE8',3.0); scene.add(chLabel);
+function layoutChain(){
+  const half=Math.tan(camera.fov*Math.PI/360)*camera.position.z;
+  CHAIN_X=Math.max(10.8, half*(innerWidth/innerHeight)-4.2);
+  chainCubes.forEach((c,idx)=>{
+    c.dest.set(CHAIN_X, CHAIN_Y0+idx*CHAIN_DY, 0);
+    if(c.fly<0) c.mesh.position.copy(c.dest);
+  });
+  chainLinks.forEach((ln,k)=>{
+    ln.geometry.setFromPoints([
+      new THREE.Vector3(CHAIN_X, CHAIN_Y0+k*CHAIN_DY+.65, 0),
+      new THREE.Vector3(CHAIN_X, CHAIN_Y0+(k+1)*CHAIN_DY-.65, 0)]);
+  });
+  gLabel.position.set(CHAIN_X, CHAIN_Y0-1.3, 0);
+  chLabel.position.set(CHAIN_X, CHAIN_Y0+chainCubes.length*CHAIN_DY-.4, 0);
+}
 function addChainBlock(atWorldPos){
   const idx=chainCubes.length;
-  const dest=new THREE.Vector3(CHAIN_X0+idx*CHAIN_DX, CHAIN_Y, 0);
+  const dest=new THREE.Vector3(CHAIN_X, CHAIN_Y0+idx*CHAIN_DY, 0);
   const b=makeBlockMesh();
   if(atWorldPos){ b.position.copy(atWorldPos); }
   else{ b.position.copy(dest); }
   scene.add(b);
   chainCubes.push({mesh:b,dest,fly:atWorldPos?0:-1});
   if(idx>0){
-    const prev=new THREE.Vector3(CHAIN_X0+(idx-1)*CHAIN_DX, CHAIN_Y, 0);
-    const ln=new THREE.Line(new THREE.BufferGeometry().setFromPoints([
-      prev.clone().add(new THREE.Vector3(.65,0,0)), dest.clone().add(new THREE.Vector3(-.65,0,0))]),
+    const ln=new THREE.Line(new THREE.BufferGeometry(),
       new THREE.LineBasicMaterial({color:0x4A4A7E}));
-    ln.userData.chain=true; scene.add(ln);
+    ln.userData.chain=true; scene.add(ln); chainLinks.push(ln);
   }
   cHeight.textContent=idx;
+  layoutChain();
   return chainCubes[idx];
 }
 addChainBlock(null); // genesis
-const gLabel=textSprite('제네시스','#8A8FB5',2.8);
-gLabel.position.set(CHAIN_X0, CHAIN_Y-1.25, 0); scene.add(gLabel);
-const chLabel=textSprite('블록체인','#C9CDE8',3.0);
-chLabel.position.set(CHAIN_X0, CHAIN_Y+1.35, 0); scene.add(chLabel);
 
 // pulse & coins & shock
 const pulse=new THREE.Mesh(new THREE.SphereGeometry(.15,12,12), new THREE.MeshBasicMaterial({color:C.indigo}));
@@ -323,6 +325,7 @@ addEventListener('pointermove',e=>{
 container.addEventListener('wheel',e=>{
   e.preventDefault();
   camera.position.z=Math.max(15,Math.min(45,camera.position.z+e.deltaY*.02));
+  layoutChain();
 },{passive:false});
 
 // ---------- helpers ----------
@@ -358,6 +361,7 @@ async function wave(src,kind){
           nd.exec=true; cExec.textContent=++execCount;
           nd.target.setHex(C.mint); nd.pop=1; flashEdges(i,C.mint);
         }
+        if(kind==='deposit'){ nd.pop=1; nd.target.setHex(C.gold); flashEdges(i,C.gold); }
         if(kind==='alert'){ nd.pop=1; flashEdges(i,C.red); }
       }, Math.random()*160);
     });
@@ -370,18 +374,24 @@ async function stake(){
   if(running||validatorIdx.length>0) return;
   staked=true;
   running=true; btnStake.disabled=true;
-  setStage(1,'① 32 ETH를 예치 컨트랙트로 — 이 예치도 평범한 EL 트랜잭션이다');
+  setStage(1,'① 각 노드가 32 ETH 예치 tx에 서명 — 예치 컨트랙트는 특정 서버가 아니라 모두가 들고 있는 상태다');
   const pool=nodes.map((_,i)=>i).filter(i=>i!==MY);
   for(let k=0;k<N_VALIDATORS;k++){
     const i=pool.splice(Math.floor(Math.random()*pool.length),1)[0];
     validatorIdx.push(i);
     const coin=new THREE.Mesh(new THREE.SphereGeometry(.14,10,10),
       new THREE.MeshBasicMaterial({color:C.gold}));
-    coin.position.copy(positions[i]); root.add(coin);
-    coins.push({mesh:coin,from:positions[i].clone(),t:0,node:i});
-    await sleep(260);
+    coin.position.copy(positions[i]).add(new THREE.Vector3(0,1.4,0)); root.add(coin);
+    coins.push({mesh:coin,from:coin.position.clone(),to:positions[i].clone(),t:0,node:i});
+    await sleep(200);
   }
-  await sleep(900);
+  await sleep(800);
+  setStage(1,'① 예치 tx가 여느 tx처럼 전파 — 모든 노드가 자기 상태(컨트랙트 잔고)에 똑같이 기록한다');
+  await wave(validatorIdx[0],'deposit');
+  await sleep(300);
+  nodes.forEach(nd=>nd.target.setHex(C.idle));
+  validatorIdx.forEach((i,k)=>setTimeout(()=>activateValidator(i),k*120));
+  await sleep(validatorIdx.length*120+700);
   setStage(1,'① 활성화 완료 — 검증자 클라이언트가 붙은 노드들이 당번표에 등록됐다');
   running=false; btnSend.disabled=false; btnSlash.disabled=false;
 }
@@ -491,6 +501,7 @@ function fullReset(){
   chainCubes.slice(1).forEach(c=>scene.remove(c.mesh));
   chainCubes.length=1; cHeight.textContent=0;
   scene.children.filter(o=>o.userData&&o.userData.chain).forEach(o=>scene.remove(o));
+  chainLinks.length=0; layoutChain();
   btnStake.disabled=false; btnSend.disabled=true;
   setStage(0,'① 스테이킹으로 검증자를 등록해 시작');
   stagesEl.forEach(el=>el.classList.remove('on','done'));
@@ -536,15 +547,16 @@ async function slash(){
   statusLine.textContent='다른 검증자가 두 서명을 슬래싱 증거로 제출 — 서명은 지울 수 없는 자백이다';
   await sleep(2000);
 
-  statusLine.textContent='슬래싱: 예치금 몰수 + 검증자 명부에서 강제 퇴장';
+  statusLine.textContent='슬래싱: 모든 노드가 자기 상태에서 예치금을 차감 — 명부에서도 강제 퇴장';
   pn.target.setHex(C.red);
   badBlocks.forEach(b=>b.shrink=true);
+  const burnFrom=positions[PROPOSER].clone();
   const burn=new THREE.Mesh(new THREE.SphereGeometry(.16,10,10), new THREE.MeshBasicMaterial({color:C.gold}));
-  burn.position.copy(contractPos); root.add(burn);
+  burn.position.copy(burnFrom); root.add(burn);
   const t0=performance.now();
   const iv=setInterval(()=>{
     const e=(performance.now()-t0)/1300;
-    burn.position.copy(contractPos).add(new THREE.Vector3(0,e*3,0));
+    burn.position.copy(burnFrom).add(new THREE.Vector3(0,e*2.4,0));
     burn.scale.setScalar(Math.max(.001,1-e));
     if(e>=1){ root.remove(burn); clearInterval(iv); }
   },16);
@@ -562,6 +574,7 @@ btnReset.addEventListener('click',fullReset);
 addEventListener('resize',()=>{
   camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
+  layoutChain();
 });
 
 // ---------- loop ----------
@@ -584,8 +597,6 @@ function loop(){
   myRing.lookAt(camera.position);
   myRing.scale.setScalar(1+Math.sin(t*2.2)*.08);
 
-  contract.rotation.y+=.006; contractEdges.rotation.y+=.006;
-
   if(pulseT>=0){
     pulseT+=dt/.75;
     if(pulseT>=1){pulse.visible=false;pulseT=-1;}
@@ -595,8 +606,8 @@ function loop(){
     if(c.t>=1) return;
     c.t=Math.min(1,c.t+dt/.9);
     const e=c.t*c.t*(3-2*c.t);
-    c.mesh.position.lerpVectors(c.from,contractPos,e);
-    if(c.t>=1){ root.remove(c.mesh); activateValidator(c.node); }
+    c.mesh.position.lerpVectors(c.from,c.to,e);
+    if(c.t>=1){ root.remove(c.mesh); nodes[c.node].pop=1; }
   });
   if(shock&&shockT>=0){
     shockT+=dt; shock.lookAt(camera.position);
