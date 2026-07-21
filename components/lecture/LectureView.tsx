@@ -64,6 +64,16 @@ function Block({ block }: { block: LectureBlock }) {
         </ol>
       );
 
+    case "embed":
+      return (
+        <div className="lectureEmbed">
+          <iframe src={block.src} title="인터랙티브 자료" loading="lazy" />
+          <a href={block.src} target="_blank" rel="noreferrer">
+            새 창에서 크게 보기 ↗
+          </a>
+        </div>
+      );
+
     case "compare":
       return (
         <div className="lectureCompare">

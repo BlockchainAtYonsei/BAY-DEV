@@ -401,8 +401,9 @@ export default function LectureAdmin() {
               <p className="formGuide">
                 형식: <code># 제목</code> · 섹션은 <code>## 제목</code>, 섹션 라벨은{" "}
                 <code>:라벨 개념 ①</code> · 블록은 <code>:::cards</code> <code>:::flow</code>{" "}
-                <code>:::steps</code> <code>:::compare</code> <code>:::callout</code> ~{" "}
-                <code>:::</code>, 블록 안 항목은 <code>### 제목</code>으로 나눕니다.
+                <code>:::steps</code> <code>:::compare</code> <code>:::callout</code>{" "}
+                <code>:::embed</code>(URL 한 줄) ~ <code>:::</code>, 블록 안 항목은{" "}
+                <code>### 제목</code>으로 나눕니다.
               </p>
             </div>
 

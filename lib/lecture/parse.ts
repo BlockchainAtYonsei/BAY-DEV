@@ -23,6 +23,7 @@
  * - steps   : 번호 매긴 단계 (트랜잭션 생애주기 등)
  * - compare : 좌우 2단 비교 (일반 노드 vs 검증자)
  * - callout : 강조 박스 (### 없이 내용만)
+ * - embed   : URL 한 줄 → iframe 임베드 (인터랙티브 자료 등)
  * - 컨테이너 밖 내용은 일반 마크다운 (코드펜스 포함)
  */
 
@@ -34,7 +35,8 @@ export type LectureItem = {
 export type LectureBlock =
   | { kind: "markdown"; text: string }
   | { kind: "cards" | "flow" | "steps" | "compare"; items: LectureItem[] }
-  | { kind: "callout"; text: string };
+  | { kind: "callout"; text: string }
+  | { kind: "embed"; src: string };
 
 export type LectureSection = {
   label: string;
@@ -48,7 +50,7 @@ export type ParsedLecture = {
   sections: LectureSection[];
 };
 
-const CONTAINER_RE = /^:::(cards|flow|steps|compare|callout)\s*$/;
+const CONTAINER_RE = /^:::(cards|flow|steps|compare|callout|embed)\s*$/;
 const LABEL_RE = /^:라벨\s+(.+)$/;
 
 function parseItems(lines: string[]): LectureItem[] {
@@ -94,6 +96,9 @@ export function parseLecture(markdown: string): ParsedLecture {
       if (!inFence && line.trim() === ":::") {
         if (container.kind === "callout") {
           current?.blocks.push({ kind: "callout", text: container.lines.join("\n").trim() });
+        } else if (container.kind === "embed") {
+          const src = container.lines.join("\n").trim();
+          if (src) current?.blocks.push({ kind: "embed", src });
         } else {
           current?.blocks.push({
             kind: container.kind as "cards" | "flow" | "steps" | "compare",
