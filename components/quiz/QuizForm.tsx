@@ -21,6 +21,7 @@ type Props = {
 export default function QuizForm({ slug }: Props) {
   const auth = useSession();
   const loggedIn = Boolean(auth.session?.name);
+  const wallet = auth.session?.wallet || null;
 
   const [quiz, setQuiz] = useState<PublicQuiz | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -28,8 +29,15 @@ export default function QuizForm({ slug }: Props) {
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  // 임시저장 로드가 끝나기 전에는 localStorage에 쓰지 않는다(빈 답으로 덮어쓰기 방지)
+  const [ready, setReady] = useState(false);
+
+  // 지갑별로 임시저장을 분리해 한 브라우저를 공유해도 답이 섞이지 않게 한다
+  const draftKey = `bay-quiz-draft:${slug}:${wallet || "anon"}`;
 
   const load = useCallback(async () => {
+    setReady(false);
     const res = await fetch(`/api/quizzes/${slug}`);
     if (!res.ok) {
       setNotFound(true);
@@ -37,17 +45,50 @@ export default function QuizForm({ slug }: Props) {
     }
     const data = await res.json();
     setQuiz(data.quiz);
-    setAnswers(
-      data.myResponse?.answers?.length
-        ? data.myResponse.answers
-        : new Array(data.quiz.questions.length).fill(null)
-    );
+
+    const blank: QuizAnswer[] = new Array(data.quiz.questions.length).fill(null);
+    if (data.myResponse?.answers?.length) {
+      // 서버에 제출된 응답이 최우선
+      setAnswers(data.myResponse.answers);
+      setDraftRestored(false);
+    } else {
+      // 제출 전이라면 브라우저에 적어두던 임시 답안을 복원
+      let restored = blank;
+      let hadDraft = false;
+      try {
+        const raw = localStorage.getItem(draftKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length === blank.length) {
+            restored = parsed;
+            hadDraft = parsed.some(
+              (a) => a !== null && a !== "" && !(Array.isArray(a) && a.length === 0)
+            );
+          }
+        }
+      } catch {
+        // 손상된 임시저장은 무시
+      }
+      setAnswers(restored);
+      setDraftRestored(hadDraft);
+    }
     setSubmittedAt(data.myResponse?.updatedAt || null);
-  }, [slug]);
+    setReady(true);
+  }, [slug, draftKey]);
 
   useEffect(() => {
     load();
   }, [load, loggedIn]);
+
+  // 답을 바꿀 때마다 브라우저에 임시저장 (제출 여부와 무관하게 계속 기억)
+  useEffect(() => {
+    if (!ready) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(answers));
+    } catch {
+      // 저장 공간 초과 등은 조용히 무시
+    }
+  }, [answers, ready, draftKey]);
 
   function setAnswer(index: number, value: QuizAnswer) {
     setAnswers((prev) => {
@@ -116,6 +157,16 @@ export default function QuizForm({ slug }: Props) {
             {submittedAt &&
               ` · 마지막 제출 ${new Date(submittedAt).toLocaleString("ko-KR")}`}
           </strong>
+          {!submittedAt && draftRestored && (
+            <small className="quizHint" style={{ display: "block", marginTop: 6 }}>
+              작성 중이던 답안을 이 브라우저에서 불러왔습니다. 아직 제출되지는 않았어요.
+            </small>
+          )}
+          {!submittedAt && !draftRestored && (
+            <small className="quizHint" style={{ display: "block", marginTop: 6 }}>
+              작성한 답안은 이 브라우저에 자동 저장되어, 나갔다 와도 이어서 쓸 수 있습니다.
+            </small>
+          )}
         </div>
 
         {quiz.questions.map((question) => (
