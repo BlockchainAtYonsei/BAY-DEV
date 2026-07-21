@@ -18,7 +18,8 @@ export default function AuthGate({ auth, children }: Props) {
   const { session, loading, busy, error, isConnected, connect, signIn, register, logout } = auth;
 
   if (loading) {
-    return null;
+    // 세션 확인 중 빈 화면 대신 자리표시자를 보여줘 늦게 뜨는 느낌을 줄인다
+    return <div className="submissionForm skeleton" aria-hidden="true" />;
   }
 
   if (!session) {

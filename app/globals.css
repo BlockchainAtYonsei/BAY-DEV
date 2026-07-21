@@ -174,6 +174,45 @@ a {
   width: min(1120px, calc(100% - 32px));
   margin: 0 auto;
   padding: 40px 0 64px;
+  animation: pageIn 0.26s ease both;
+}
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 세션 확인 등 잠깐의 로딩 자리표시자 */
+.skeleton {
+  min-height: 180px;
+  background:
+    linear-gradient(100deg, transparent 30%, rgba(148, 168, 220, 0.08) 50%, transparent 70%)
+    var(--panel);
+  background-size: 220% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 130% 0;
+  }
+  to {
+    background-position: -80% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell,
+  .adminShell,
+  .skeleton {
+    animation: none;
+  }
 }
 
 .shell.narrow {

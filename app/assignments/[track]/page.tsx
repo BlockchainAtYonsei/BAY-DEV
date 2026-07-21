@@ -2,6 +2,7 @@ import { existsSync } from "fs";
 import path from "path";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import BackButton from "@/components/BackButton";
 import Nav from "@/components/Nav";
 import PageHeader from "@/components/PageHeader";
 import SubmissionGuide from "@/components/SubmissionGuide";
@@ -66,6 +67,7 @@ export default async function TrackPage({
 
   return (
     <main className="shell narrow">
+      <BackButton fallback="/" label="메인으로" />
       <PageHeader badge={track.badge} title={track.title} description={track.description} />
       <Nav />
       {track.submitMode === "quiz" ? (
