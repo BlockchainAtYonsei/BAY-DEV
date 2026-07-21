@@ -289,6 +289,33 @@ export default function QuizAdmin() {
                 />
               </label>
               <label>
+                md 파일 업로드 (내용을 아래 편집기로 불러옵니다)
+                <input
+                  type="file"
+                  accept=".md,.markdown,text/markdown,text/plain"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    const text = await file.text();
+                    setEditor((prev) => {
+                      if (!prev) return prev;
+                      const fromName = file.name
+                        .replace(/\.(md|markdown|txt)$/i, "")
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/^-+|-+$/g, "")
+                        .slice(0, 64);
+                      return {
+                        ...prev,
+                        markdown: text,
+                        slug: prev.slug || fromName
+                      };
+                    });
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+              <label>
                 퀴즈 마크다운
                 <textarea
                   className="quizMarkdownInput"
