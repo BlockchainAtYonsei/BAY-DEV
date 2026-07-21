@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이더리움 풀 사이클 — 스테이킹부터 블록체인까지</title>
+<style>
+  :root{
+    --bg:#14142A; --panel:#1D1D38; --line:#2E2E52;
+    --ink:#E8E9F5; --muted:#8A8FB5;
+    --indigo:#5B6CFF; --mint:#39C6A5; --gold:#FFC94D; --purple:#9D8CFF;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; overflow:hidden; background:var(--bg);
+    font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+    color:var(--ink); }
+  #scene{ position:fixed; inset:0; cursor:grab; }
+  #scene.dragging{ cursor:grabbing; }
+  .hud{ position:fixed; z-index:10; pointer-events:none; }
+  .hud > *{ pointer-events:auto; }
+
+  #head{ top:22px; left:26px; max-width:560px; }
+  #head h1{ font-size:20px; font-weight:800; letter-spacing:-.01em; }
+  #head h1 em{ font-style:normal; color:var(--indigo); }
+  #head .hint{ margin-top:5px; font-size:12px; color:var(--muted); }
+
+  #status{ top:22px; right:26px; text-align:right; max-width:420px; }
+  #statusLine{ font-size:15px; font-weight:700; min-height:22px; }
+  #counters{ margin-top:6px; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  #counters b{ color:var(--ink); font-weight:600; }
+
+  #elPanel{ left:26px; bottom:150px; background:var(--panel); border:1px solid var(--line);
+    border-radius:12px; padding:12px 16px; min-width:230px; display:none; }
+  #elPanel .tt{ font-size:12px; font-weight:700; color:var(--purple); margin-bottom:8px; }
+  #elPanel .ln{ font-size:12.5px; color:var(--muted); margin-top:5px; opacity:.25; transition:opacity .3s, color .3s; }
+  #elPanel .ln.on{ opacity:1; color:var(--ink); }
+  #elPanel .ln b{ color:var(--mint); font-weight:700; }
+
+  #timeline{ left:50%; bottom:86px; transform:translateX(-50%);
+    display:flex; gap:7px; align-items:stretch; }
+  .stage{ background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:7px 11px 8px; min-width:104px; transition:border-color .3s, background .3s, opacity .3s; opacity:.55; }
+  .stage .wk{ display:inline-block; font-size:10px; font-weight:700; color:var(--bg);
+    background:var(--mint); border-radius:5px; padding:1px 6px; margin-bottom:3px; }
+  .stage .wk.none{ visibility:hidden; }
+  .stage .nm{ display:block; font-size:12px; font-weight:700; }
+  .stage.on{ opacity:1; border-color:var(--indigo);
+    background:linear-gradient(180deg, rgba(91,108,255,.16), rgba(91,108,255,.04)); }
+  .stage.done{ opacity:1; border-color:rgba(57,198,165,.55); }
+
+  #controls{ left:50%; bottom:26px; transform:translateX(-50%);
+    display:flex; gap:10px; align-items:center; }
+  button{ font:inherit; font-size:14px; font-weight:700; color:var(--ink);
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:10px 18px; cursor:pointer; transition:transform .1s, border-color .2s; }
+  button:hover{ border-color:var(--indigo); }
+  button:active{ transform:scale(.97); }
+  button:focus-visible{ outline:2px solid var(--indigo); outline-offset:2px; }
+  button:disabled{ opacity:.4; cursor:default; }
+  .primary{ background:var(--indigo); border-color:var(--indigo); color:#fff; }
+  .primary:hover{ filter:brightness(1.1); }
+  .toggle{ font-size:12.5px; color:var(--muted); display:flex; gap:6px; align-items:center;
+    background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:9px 12px; }
+  .toggle input{ accent-color:var(--indigo); }
+
+  #legend{ right:26px; bottom:26px; font-size:11.5px; color:var(--muted);
+    display:flex; flex-direction:column; gap:5px; text-align:left; }
+  #legend span{ display:flex; align-items:center; gap:7px; }
+  .dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .ring{ width:9px; height:9px; border-radius:50%; border:2px solid var(--gold); display:inline-block; }
+  .sq{ width:9px; height:9px; display:inline-block; background:var(--purple); }
+
+  @media (max-width:1100px){ #timeline{ display:none; } #legend{ display:none; } #elPanel{ display:none !important; } }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+
+<div class="hud" id="head">
+  <h1>이더리움 풀 사이클 <em>— 스테이킹부터 블록체인까지</em></h1>
+  <div class="hint">드래그 회전 · 휠 확대 · ① 스테이킹으로 검증자를 만들고 ② tx를 흘려보내기</div>
+</div>
+
+<div class="hud" id="status">
+  <div id="statusLine">① 스테이킹으로 검증자를 등록해 시작</div>
+  <div id="counters">검증자 <b id="cVal">0</b> · 멤풀 전파 <b id="cGossip">0</b>/<b id="cTotal">0</b> · 재실행 <b id="cExec">0</b> · 증명 <b id="cAtt">0</b> · 블록 높이 <b id="cHeight">0</b></div>
+</div>
+
+<div class="hud" id="elPanel">
+  <div class="tt">제안자의 geth (EL) — tx 실행·검증</div>
+  <div class="ln" id="el1">서명 복원 → 보낸 사람 확인 <b>✓</b></div>
+  <div class="ln" id="el2">nonce 검증 <b>✓</b></div>
+  <div class="ln" id="el3">잔액 ≥ 송금액 + 가스 <b>✓</b></div>
+  <div class="ln" id="el4">EVM 실행 → 상태 변경 <b>✓</b></div>
+  <div class="ln" id="el5">유효 — 페이로드에 포함</div>
+</div>
+
+<div class="hud" id="timeline">
+  <div class="stage" data-s="1"><span class="wk none">-</span><span class="nm">① 스테이킹</span></div>
+  <div class="stage" data-s="2"><span class="wk none">-</span><span class="nm">② 지갑 서명</span></div>
+  <div class="stage" data-s="3"><span class="wk">2·6주</span><span class="nm">③ 멤풀 전파</span></div>
+  <div class="stage" data-s="4"><span class="wk none">-</span><span class="nm">④ 제안자 선출</span></div>
+  <div class="stage" data-s="5"><span class="wk">3주</span><span class="nm">⑤ EL 실행·검증</span></div>
+  <div class="stage" data-s="6"><span class="wk">5주</span><span class="nm">⑥ 블록 조립</span></div>
+  <div class="stage" data-s="7"><span class="wk">4주</span><span class="nm">⑦ 전파·증명·연결</span></div>
+</div>
+
+<div class="hud" id="controls">
+  <button id="btnStake" class="primary">① 스테이킹 (32 ETH × 10)</button>
+  <button id="btnSend" disabled>② tx 보내기</button>
+  <button id="btnSlash" disabled>③ 이중 제안 (슬래싱)</button>
+  <button id="btnReset">전체 초기화</button>
+  <label class="toggle"><input type="checkbox" id="chkSpin" checked> 자동 회전</label>
+</div>
+
+<div class="hud" id="legend">
+  <span><i class="dot" style="background:#4A4A7E"></i> 일반 노드 (geth + 비콘 노드)</span>
+  <span><i class="ring"></i> 검증자 (+ 검증자 클라이언트, 32 ETH)</span>
+  <span><i class="dot" style="background:var(--indigo)"></i> 멤풀에 tx 도착</span>
+  <span><i class="dot" style="background:var(--mint)"></i> 재실행·검증 완료</span>
+  <span><i class="sq"></i> 블록 (보라 포장 + 청록 페이로드)</span>
+  <span><i class="dot" style="background:#E24B4A"></i> 슬래싱 (모순 서명 발각)</span>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+const C = {
+  bg:0x14142A, idle:0x4A4A7E, indigo:0x5B6CFF, mint:0x39C6A5,
+  gold:0xFFC94D, purple:0x9D8CFF, edge:0x272749, red:0xE24B4A,
+};
+const N_NODES = 64, RADIUS = 9, HOP_MS = 400, N_VALIDATORS = 10;
+
+const $ = id => document.getElementById(id);
+const statusLine=$('statusLine'), cVal=$('cVal'), cTotal=$('cTotal'),
+      cGossip=$('cGossip'), cExec=$('cExec'), cHeight=$('cHeight'), cAtt=$('cAtt'),
+      btnStake=$('btnStake'), btnSend=$('btnSend'), btnSlash=$('btnSlash'), btnReset=$('btnReset'),
+      chkSpin=$('chkSpin'), elPanel=$('elPanel');
+const stagesEl = Array.from(document.querySelectorAll('.stage'));
+if (matchMedia('(prefers-reduced-motion: reduce)').matches) chkSpin.checked=false;
+
+// ---------- renderer ----------
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(C.bg,1);
+$('scene').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(C.bg, 30, 60);
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, .1, 120);
+camera.position.set(0, 1.5, 27);
+camera.lookAt(0,-1,0);
+scene.add(new THREE.AmbientLight(0xffffff,.55));
+const key = new THREE.PointLight(0x9AA6FF,.9,120); key.position.set(12,16,18); scene.add(key);
+
+const root = new THREE.Group(); root.position.y = 1.5; scene.add(root);
+
+// ---------- layout ----------
+function fiboSphere(n,r){
+  const pts=[], phi=Math.PI*(3-Math.sqrt(5));
+  for(let i=0;i<n;i++){
+    const y=1-(i/(n-1))*2, rad=Math.sqrt(1-y*y), th=phi*i;
+    const j=()=> (Math.random()-.5)*2.4;
+    pts.push(new THREE.Vector3(Math.cos(th)*rad*r+j(), y*r+j(), Math.sin(th)*rad*r+j()));
+  }
+  return pts;
+}
+const positions = fiboSphere(N_NODES, RADIUS);
+
+// kNN edges + connectivity repair
+const K=3, edgeSet=new Set(), adj=Array.from({length:N_NODES},()=>[]);
+positions.forEach((p,i)=>{
+  positions.map((q,j)=>({j,dd:i===j?Infinity:p.distanceToSquared(q)}))
+    .sort((a,b)=>a.dd-b.dd).slice(0,K)
+    .forEach(({j})=>edgeSet.add(i<j? i+'_'+j : j+'_'+i));
+});
+const edges = Array.from(edgeSet).map(k=>k.split('_').map(Number));
+edges.forEach(([a,b])=>{adj[a].push(b);adj[b].push(a);});
+{
+  const seen=Array(N_NODES).fill(false); seen[0]=true; const q=[0];
+  while(q.length){const u=q.shift(); adj[u].forEach(v=>{if(!seen[v]){seen[v]=true;q.push(v);}});}
+  for(let i=0;i<N_NODES;i++){
+    if(seen[i]) continue;
+    let best=-1,bd=Infinity;
+    for(let j=0;j<N_NODES;j++) if(seen[j]){const dd=positions[i].distanceToSquared(positions[j]); if(dd<bd){bd=dd;best=j;}}
+    edges.push([i,best]); adj[i].push(best); adj[best].push(i);
+    const q2=[i]; seen[i]=true;
+    while(q2.length){const u=q2.shift(); adj[u].forEach(v=>{if(!seen[v]){seen[v]=true;q2.push(v);}});}
+  }
+}
+
+// edge lines
+const ePos=new Float32Array(edges.length*6), eCol=new Float32Array(edges.length*6);
+edges.forEach(([a,b],i)=>ePos.set([...positions[a].toArray(),...positions[b].toArray()], i*6));
+const edgeGeo=new THREE.BufferGeometry();
+edgeGeo.setAttribute('position', new THREE.BufferAttribute(ePos,3));
+edgeGeo.setAttribute('color', new THREE.BufferAttribute(eCol,3));
+root.add(new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.85})));
+const edgeBase=new THREE.Color(C.edge);
+const edgeState=edges.map(()=>({flash:0,color:new THREE.Color(C.indigo)}));
+function paintEdges(){
+  const t=new THREE.Color();
+  edgeState.forEach((st,i)=>{
+    t.copy(edgeBase).lerp(st.color, st.flash);
+    eCol.set([t.r,t.g,t.b,t.r,t.g,t.b], i*6);
+    st.flash*=.94;
+  });
+  edgeGeo.attributes.color.needsUpdate=true;
+}
+function flashEdges(i,hex){
+  edges.forEach(([a,b],k)=>{ if(a===i||b===i){edgeState[k].flash=1; edgeState[k].color.setHex(hex);} });
+}
+
+// nodes
+const nodeGeo=new THREE.SphereGeometry(.28,18,18);
+const nodes=positions.map((p)=>{
+  const mat=new THREE.MeshLambertMaterial({color:C.idle,emissive:C.idle,emissiveIntensity:.25});
+  const m=new THREE.Mesh(nodeGeo,mat); m.position.copy(p); root.add(m);
+  return {mesh:m,mat,target:new THREE.Color(C.idle),pop:0,gossip:false,exec:false,isVal:false,ring:null};
+});
+cTotal.textContent=N_NODES;
+const MY=30; nodes[MY].mesh.scale.setScalar(1.4);
+
+function makeRing(hex,r0,r1){
+  return new THREE.Mesh(new THREE.RingGeometry(r0,r1,40),
+    new THREE.MeshBasicMaterial({color:hex,side:THREE.DoubleSide,transparent:true,opacity:.95}));
+}
+const myRing=makeRing(C.indigo,.5,.58); myRing.position.copy(positions[MY]); root.add(myRing);
+
+function textSprite(text,css,w){
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=80;
+  const ctx=cv.getContext('2d');
+  ctx.font='700 32px "Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.shadowColor='rgba(0,0,0,.7)'; ctx.shadowBlur=8; ctx.fillStyle=css;
+  ctx.fillText(text,128,40);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false}));
+  sp.scale.set(w||3.2,1,1); return sp;
+}
+const myLabel=textSprite('내 노드','#AEB8FF');
+myLabel.position.copy(positions[MY]).add(new THREE.Vector3(0,.9,0)); root.add(myLabel);
+
+// wallet
+const walletPos=positions[MY].clone().multiplyScalar(1.75);
+const wallet=new THREE.Mesh(new THREE.OctahedronGeometry(.4),
+  new THREE.MeshLambertMaterial({color:0xE8E9F5,emissive:0x8A8FB5,emissiveIntensity:.35}));
+wallet.position.copy(walletPos); root.add(wallet);
+const wLabel=textSprite('지갑','#C9CDE8',2.4);
+wLabel.position.copy(walletPos).add(new THREE.Vector3(0,.85,0)); root.add(wLabel);
+root.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([walletPos,positions[MY]]),
+  new THREE.LineBasicMaterial({color:0x3A3A66,transparent:true,opacity:.9})));
+
+// deposit contract (EL smart contract) — gold cube on the opposite side
+const contractPos=positions[MY].clone().multiplyScalar(-1.6); contractPos.y+=2;
+const contract=new THREE.Mesh(new THREE.BoxGeometry(.9,.9,.9),
+  new THREE.MeshLambertMaterial({color:0x2A2A4A,emissive:C.gold,emissiveIntensity:.18}));
+contract.position.copy(contractPos); root.add(contract);
+const contractEdges=new THREE.LineSegments(new THREE.EdgesGeometry(contract.geometry),
+  new THREE.LineBasicMaterial({color:C.gold}));
+contractEdges.position.copy(contractPos); root.add(contractEdges);
+const cLabel=textSprite('예치 컨트랙트 (EL)','#FFD98A',4.6);
+cLabel.position.copy(contractPos).add(new THREE.Vector3(0,1.05,0)); root.add(cLabel);
+
+// blockchain lane (in scene coords, does not rotate)
+const CHAIN_Y=-10.4, CHAIN_X0=-9.5, CHAIN_DX=2.0;
+const chainCubes=[];
+function makeBlockMesh(){
+  const g=new THREE.Group();
+  const outer=new THREE.Mesh(new THREE.BoxGeometry(1.3,1.3,1.3),
+    new THREE.MeshLambertMaterial({color:C.purple,emissive:C.purple,emissiveIntensity:.25,transparent:true,opacity:.4}));
+  const oEdge=new THREE.LineSegments(new THREE.EdgesGeometry(outer.geometry),
+    new THREE.LineBasicMaterial({color:C.purple}));
+  const inner=new THREE.Mesh(new THREE.BoxGeometry(.68,.68,.68),
+    new THREE.MeshLambertMaterial({color:C.mint,emissive:C.mint,emissiveIntensity:.45}));
+  g.add(outer,oEdge,inner); return g;
+}
+function addChainBlock(atWorldPos){
+  const idx=chainCubes.length;
+  const dest=new THREE.Vector3(CHAIN_X0+idx*CHAIN_DX, CHAIN_Y, 0);
+  const b=makeBlockMesh();
+  if(atWorldPos){ b.position.copy(atWorldPos); }
+  else{ b.position.copy(dest); }
+  scene.add(b);
+  chainCubes.push({mesh:b,dest,fly:atWorldPos?0:-1});
+  if(idx>0){
+    const prev=new THREE.Vector3(CHAIN_X0+(idx-1)*CHAIN_DX, CHAIN_Y, 0);
+    const ln=new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+      prev.clone().add(new THREE.Vector3(.65,0,0)), dest.clone().add(new THREE.Vector3(-.65,0,0))]),
+      new THREE.LineBasicMaterial({color:0x4A4A7E}));
+    ln.userData.chain=true; scene.add(ln);
+  }
+  cHeight.textContent=idx;
+  return chainCubes[idx];
+}
+addChainBlock(null); // genesis
+const gLabel=textSprite('제네시스','#8A8FB5',2.8);
+gLabel.position.set(CHAIN_X0, CHAIN_Y-1.25, 0); scene.add(gLabel);
+const chLabel=textSprite('블록체인','#C9CDE8',3.0);
+chLabel.position.set(CHAIN_X0, CHAIN_Y+1.35, 0); scene.add(chLabel);
+
+// pulse & coins & shock
+const pulse=new THREE.Mesh(new THREE.SphereGeometry(.15,12,12), new THREE.MeshBasicMaterial({color:C.indigo}));
+pulse.visible=false; root.add(pulse); let pulseT=-1;
+const coins=[]; // {mesh, from, t}
+let shock=null, shockT=-1;
+const votes=[]; const badBlocks=[]; let attCount=0; let whistle=null;
+
+// ---------- interaction ----------
+const container=$('scene');
+let dragging=false,px=0,py=0,velY=0,rotX=.1;
+container.addEventListener('pointerdown',e=>{dragging=true;px=e.clientX;py=e.clientY;container.classList.add('dragging');});
+addEventListener('pointerup',()=>{dragging=false;container.classList.remove('dragging');});
+addEventListener('pointermove',e=>{
+  if(!dragging)return;
+  const dx=(e.clientX-px)/innerWidth, dy=(e.clientY-py)/innerHeight;
+  px=e.clientX;py=e.clientY;
+  root.rotation.y+=dx*4.5; velY=dx*4.5;
+  rotX=Math.max(-.9,Math.min(.9,rotX+dy*2.5));
+});
+container.addEventListener('wheel',e=>{
+  e.preventDefault();
+  camera.position.z=Math.max(15,Math.min(45,camera.position.z+e.deltaY*.02));
+},{passive:false});
+
+// ---------- helpers ----------
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function setStage(n,text){
+  statusLine.textContent=text;
+  stagesEl.forEach(el=>{
+    const s=+el.dataset.s;
+    el.classList.toggle('on',s===n);
+    el.classList.toggle('done',s<n);
+  });
+}
+function bfs(src){
+  const lv=Array(N_NODES).fill(-1); lv[src]=0; const q=[src];
+  while(q.length){const u=q.shift(); adj[u].forEach(v=>{if(lv[v]<0){lv[v]=lv[u]+1;q.push(v);}});}
+  return lv;
+}
+let gossipCount=0, execCount=0, staked=false, running=false;
+let PROPOSER=-1;
+const validatorIdx=[];
+
+async function wave(src,kind){
+  const lv=bfs(src), maxLv=Math.max(...lv);
+  for(let L=0;L<=maxLv;L++){
+    nodes.forEach((nd,i)=>{
+      if(lv[i]!==L) return;
+      setTimeout(()=>{
+        if(kind==='gossip'&&!nd.gossip){
+          nd.gossip=true; cGossip.textContent=++gossipCount;
+          nd.target.setHex(C.indigo); nd.pop=1; flashEdges(i,C.indigo);
+        }
+        if(kind==='exec'&&!nd.exec){
+          nd.exec=true; cExec.textContent=++execCount;
+          nd.target.setHex(C.mint); nd.pop=1; flashEdges(i,C.mint);
+        }
+        if(kind==='alert'){ nd.pop=1; flashEdges(i,C.red); }
+      }, Math.random()*160);
+    });
+    await sleep(HOP_MS);
+  }
+}
+
+// ---------- staking ----------
+async function stake(){
+  if(running||validatorIdx.length>0) return;
+  staked=true;
+  running=true; btnStake.disabled=true;
+  setStage(1,'① 32 ETH를 예치 컨트랙트로 — 이 예치도 평범한 EL 트랜잭션이다');
+  const pool=nodes.map((_,i)=>i).filter(i=>i!==MY);
+  for(let k=0;k<N_VALIDATORS;k++){
+    const i=pool.splice(Math.floor(Math.random()*pool.length),1)[0];
+    validatorIdx.push(i);
+    const coin=new THREE.Mesh(new THREE.SphereGeometry(.14,10,10),
+      new THREE.MeshBasicMaterial({color:C.gold}));
+    coin.position.copy(positions[i]); root.add(coin);
+    coins.push({mesh:coin,from:positions[i].clone(),t:0,node:i});
+    await sleep(260);
+  }
+  await sleep(900);
+  setStage(1,'① 활성화 완료 — 검증자 클라이언트가 붙은 노드들이 당번표에 등록됐다');
+  running=false; btnSend.disabled=false; btnSlash.disabled=false;
+}
+function activateValidator(i){
+  const nd=nodes[i];
+  if(nd.ring) return;
+  nd.isVal=true;
+  const r=makeRing(C.gold,.42,.52); r.position.copy(positions[i]);
+  root.add(r); nd.ring=r;
+  nd.pop=1.2; cVal.textContent=validatorIdx.filter(v=>nodes[v].isVal).length;
+}
+
+// ---------- tx lifecycle ----------
+async function run(){
+  if(running||!staked&&validatorIdx.length===0) return;
+  if(running) return;
+  running=true; btnSend.disabled=true; btnSlash.disabled=true; btnStake.disabled=true;
+  softReset();
+
+  setStage(2,'② 지갑이 tx에 서명 — 아직 아무 일도 일어나지 않았다');
+  wallet.material.emissiveIntensity=1.2;
+  await sleep(1000);
+  wallet.material.emissiveIntensity=.35;
+
+  setStage(2,'② 내 노드의 RPC가 접수 → txpool 대기실로 (2주차)');
+  pulseT=0;
+  await sleep(800);
+  nodes[MY].gossip=true; gossipCount=1; cGossip.textContent=1;
+  nodes[MY].target.setHex(C.indigo); nodes[MY].pop=1; flashEdges(MY,C.indigo);
+  await sleep(600);
+
+  setStage(3,'③ p2p 가십 — 검증자든 아니든 모든 노드의 멤풀로 (2·6주차)');
+  await wave(MY,'gossip');
+  await sleep(450);
+
+  setStage(4,'④ RANDAO 당번표 — 이번 슬롯의 제안자는 검증자 중에서만');
+  for(let k=0;k<7;k++){
+    const r=validatorIdx[Math.floor(Math.random()*validatorIdx.length)];
+    nodes[r].pop=.9; await sleep(160);
+  }
+  PROPOSER=validatorIdx[Math.floor(Math.random()*validatorIdx.length)];
+  const pn=nodes[PROPOSER];
+  pn.target.setHex(C.gold); pn.pop=1.6; pn.mesh.scale.setScalar(1.5);
+  shock=makeRing(C.gold,.5,.6); shock.position.copy(positions[PROPOSER]);
+  root.add(shock); shockT=0;
+  await sleep(1100);
+
+  setStage(5,'⑤ 제안자의 geth가 멤풀에서 tx를 꺼내 실행·검증 (3주차)');
+  elPanel.style.display='block';
+  pn.target.setHex(C.mint);
+  for(const id of ['el1','el2','el3','el4','el5']){
+    $(id).classList.add('on'); await sleep(480);
+  }
+  await sleep(500);
+
+  setStage(6,'⑥ 유효한 tx만 페이로드에 → 비콘 블록으로 포장 (5주차)');
+  const worldPos=root.localToWorld(positions[PROPOSER].clone());
+  const blk=addChainBlock(worldPos.add(new THREE.Vector3(0,1.6,0)));
+  await sleep(1300);
+
+  setStage(7,'⑦ 블록 전파 — 모든 노드가 재실행해 대조 (3·4주차)');
+  blk.fly=0;
+  await wave(PROPOSER,'exec');
+  await sleep(500);
+
+  setStage(7,'⑦ 증명(attest) — 검증자들이 "이 블록이 head"라고 서명해 투표');
+  attCount=0; cAtt.textContent=0;
+  validatorIdx.filter(v=>v!==PROPOSER).forEach((v,k)=>{
+    const from=root.localToWorld(positions[v].clone());
+    const m=new THREE.Mesh(new THREE.SphereGeometry(.12,10,10), new THREE.MeshBasicMaterial({color:C.gold}));
+    m.position.copy(from); scene.add(m);
+    votes.push({mesh:m, from, to:blk.dest.clone(), t:-k*0.13});
+  });
+  await sleep(validatorIdx.length*160+1300);
+
+  setStage(7,'✓ 지분 2/3 증명 — 블록 높이 '+(chainCubes.length-1)+'에서 내 tx가 모두의 진실이 되었다. 최종 확정(FFG)은 에포크 단위로');
+  stagesEl.forEach(el=>el.classList.add('done'));
+  stagesEl[6].classList.add('on');
+  running=false; btnSend.disabled=false; btnSlash.disabled=false;
+}
+
+function softReset(){
+  gossipCount=0; execCount=0; cGossip.textContent=0; cExec.textContent=0;
+  nodes.forEach((nd,i)=>{
+    nd.gossip=false; nd.exec=false; nd.pop=0;
+    nd.target.setHex(nd.isVal? C.idle : C.idle);
+    nd.mesh.scale.setScalar(i===MY?1.4:1);
+  });
+  if(shock){root.remove(shock);shock=null;shockT=-1;}
+  PROPOSER=-1; pulse.visible=false; pulseT=-1;
+  elPanel.style.display='none';
+  ['el1','el2','el3','el4','el5'].forEach(id=>$(id).classList.remove('on'));
+  votes.forEach(v=>scene.remove(v.mesh)); votes.length=0; attCount=0; cAtt.textContent=0;
+  badBlocks.forEach(b=>scene.remove(b.mesh)); badBlocks.length=0;
+  if(whistle){ root.remove(whistle); whistle=null; }
+}
+function fullReset(){
+  if(running) return;
+  softReset();
+  validatorIdx.forEach(i=>{
+    const nd=nodes[i];
+    if(nd.ring){root.remove(nd.ring); nd.ring=null;}
+    nd.isVal=false;
+  });
+  validatorIdx.length=0; staked=false; cVal.textContent=0;
+  coins.forEach(c=>root.remove(c.mesh)); coins.length=0;
+  chainCubes.slice(1).forEach(c=>scene.remove(c.mesh));
+  chainCubes.length=1; cHeight.textContent=0;
+  scene.children.filter(o=>o.userData&&o.userData.chain).forEach(o=>scene.remove(o));
+  btnStake.disabled=false; btnSend.disabled=true;
+  setStage(0,'① 스테이킹으로 검증자를 등록해 시작');
+  stagesEl.forEach(el=>el.classList.remove('on','done'));
+}
+btnStake.addEventListener('click',stake);
+btnSend.addEventListener('click',run);
+
+async function slash(){
+  if(running||validatorIdx.length<3) return;
+  running=true; btnSend.disabled=true; btnSlash.disabled=true; btnStake.disabled=true;
+  softReset();
+  stagesEl.forEach(el=>el.classList.remove('on','done'));
+
+  statusLine.textContent='시나리오: 이번 슬롯의 제안자가 나쁜 마음을 먹는다면?';
+  await sleep(1500);
+  for(let k=0;k<6;k++){ const r=validatorIdx[(Math.random()*validatorIdx.length)|0]; nodes[r].pop=.9; await sleep(150); }
+  PROPOSER=validatorIdx[(Math.random()*validatorIdx.length)|0];
+  const pn=nodes[PROPOSER];
+  pn.target.setHex(C.gold); pn.pop=1.5; pn.mesh.scale.setScalar(1.5);
+  statusLine.textContent='제안자로 선출 — 그런데 같은 슬롯에 블록 "두 개"를 만들어 서명한다 (이중 제안)';
+  await sleep(1700);
+
+  const wp=root.localToWorld(positions[PROPOSER].clone());
+  for(const dir of [-1,1]){
+    const b=makeBlockMesh();
+    b.children[2].material.color.setHex(C.red);
+    b.children[2].material.emissive.setHex(C.red);
+    b.position.copy(wp).add(new THREE.Vector3(0,1.4,0));
+    scene.add(b);
+    badBlocks.push({mesh:b, vel:new THREE.Vector3(dir*2.0,.6,0), shrink:false});
+  }
+  await sleep(1000);
+  statusLine.textContent='두 블록이 모두 전파 — 네트워크가 모순된 서명 두 개를 목격한다';
+  await wave(PROPOSER,'alert');
+  await sleep(600);
+
+  const others=validatorIdx.filter(v=>v!==PROPOSER);
+  const W=others[(Math.random()*others.length)|0];
+  nodes[W].pop=1.5;
+  whistle=new THREE.Line(new THREE.BufferGeometry().setFromPoints([positions[W],positions[PROPOSER]]),
+    new THREE.LineBasicMaterial({color:C.red}));
+  root.add(whistle);
+  statusLine.textContent='다른 검증자가 두 서명을 슬래싱 증거로 제출 — 서명은 지울 수 없는 자백이다';
+  await sleep(2000);
+
+  statusLine.textContent='슬래싱: 예치금 몰수 + 검증자 명부에서 강제 퇴장';
+  pn.target.setHex(C.red);
+  badBlocks.forEach(b=>b.shrink=true);
+  const burn=new THREE.Mesh(new THREE.SphereGeometry(.16,10,10), new THREE.MeshBasicMaterial({color:C.gold}));
+  burn.position.copy(contractPos); root.add(burn);
+  const t0=performance.now();
+  const iv=setInterval(()=>{
+    const e=(performance.now()-t0)/1300;
+    burn.position.copy(contractPos).add(new THREE.Vector3(0,e*3,0));
+    burn.scale.setScalar(Math.max(.001,1-e));
+    if(e>=1){ root.remove(burn); clearInterval(iv); }
+  },16);
+  if(pn.ring){ root.remove(pn.ring); pn.ring=null; }
+  pn.isVal=false;
+  validatorIdx.splice(validatorIdx.indexOf(PROPOSER),1);
+  cVal.textContent=validatorIdx.length;
+  await sleep(2000);
+  statusLine.textContent='✓ 두 블록 모두 폐기 · 부정 서명의 가격 = 예치금 전부 — 정직이 수지맞는 이유';
+  running=false; btnSend.disabled=false; btnSlash.disabled=false;
+}
+btnSlash.addEventListener('click',slash);
+btnReset.addEventListener('click',fullReset);
+
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+// ---------- loop ----------
+const clock=new THREE.Clock();
+function loop(){
+  requestAnimationFrame(loop);
+  const dt=Math.min(clock.getDelta(),.05), t=clock.elapsedTime;
+
+  if(!dragging){ if(chkSpin.checked) root.rotation.y+=.0015+velY*.02; velY*=.95; }
+  root.rotation.x+=(rotX-root.rotation.x)*.08;
+
+  nodes.forEach((nd,i)=>{
+    nd.mat.color.lerp(nd.target,.08);
+    nd.mat.emissive.copy(nd.mat.color);
+    const base=(i===MY||i===PROPOSER)?1.45:1;
+    if(nd.pop>.01){ nd.mesh.scale.setScalar(base*(1+nd.pop*.6)); nd.pop*=.88; }
+    else nd.mesh.scale.setScalar(base*(1+Math.sin(t*1.6+i)*.03));
+    if(nd.ring){ nd.ring.lookAt(camera.position); nd.ring.scale.setScalar(1+Math.sin(t*2+i)*.06); }
+  });
+  myRing.lookAt(camera.position);
+  myRing.scale.setScalar(1+Math.sin(t*2.2)*.08);
+
+  contract.rotation.y+=.006; contractEdges.rotation.y+=.006;
+
+  if(pulseT>=0){
+    pulseT+=dt/.75;
+    if(pulseT>=1){pulse.visible=false;pulseT=-1;}
+    else{pulse.visible=true; pulse.position.lerpVectors(walletPos,positions[MY],pulseT);}
+  }
+  coins.forEach(c=>{
+    if(c.t>=1) return;
+    c.t=Math.min(1,c.t+dt/.9);
+    const e=c.t*c.t*(3-2*c.t);
+    c.mesh.position.lerpVectors(c.from,contractPos,e);
+    if(c.t>=1){ root.remove(c.mesh); activateValidator(c.node); }
+  });
+  if(shock&&shockT>=0){
+    shockT+=dt; shock.lookAt(camera.position);
+    shock.scale.setScalar(1+shockT*6);
+    shock.material.opacity=Math.max(0,.9-shockT*.9);
+    if(shock.material.opacity<=0){root.remove(shock);shock=null;shockT=-1;}
+  }
+  chainCubes.forEach(c=>{
+    if(c.fly<0) return;
+    c.fly=Math.min(1,c.fly+dt/1.4);
+    const e=c.fly*c.fly*(3-2*c.fly);
+    c.mesh.position.lerp(c.dest,.06+e*.06);
+    c.mesh.rotation.y+=dt*(1-e)*2;
+    if(c.fly>=1){ c.mesh.position.copy(c.dest); c.mesh.rotation.set(0,0,0); c.fly=-1; }
+  });
+
+  for(let i=votes.length-1;i>=0;i--){
+    const v=votes[i];
+    v.t+=dt/1.0;
+    if(v.t<0) continue;
+    const e=Math.min(1,v.t);
+    const pp=new THREE.Vector3().lerpVectors(v.from,v.to,e);
+    pp.y+=Math.sin(e*Math.PI)*1.6;
+    v.mesh.position.copy(pp);
+    if(e>=1){ scene.remove(v.mesh); votes.splice(i,1); cAtt.textContent=++attCount; }
+  }
+  badBlocks.forEach(b=>{
+    b.mesh.position.add(b.vel.clone().multiplyScalar(dt));
+    b.mesh.rotation.y+=dt*1.4;
+    if(b.shrink) b.mesh.scale.multiplyScalar(Math.max(0,1-dt*2.4));
+  });
+
+  paintEdges();
+  renderer.render(scene,camera);
+}
+setStage(0,'① 스테이킹으로 검증자를 등록해 시작');
+loop();
+})();
+</script>
+</body>
+</html>
