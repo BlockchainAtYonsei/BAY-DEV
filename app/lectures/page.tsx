@@ -7,7 +7,7 @@ import { findTrack } from "@/lib/tracks";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "강의록 — BAY 개발팀"
+  title: "학습자료 — BAY 개발팀"
 };
 
 export default async function LecturesPage() {
@@ -20,13 +20,13 @@ export default async function LecturesPage() {
     <main className="shell narrow">
       <PageHeader
         badge="학습 자료"
-        title="강의록"
+        title="학습자료"
         description="회차별 강의 내용을 웹에서 바로 볼 수 있습니다."
       />
       <Nav />
       <div className="trackGrid">
         {lectures.length === 0 && (
-          <p className="formGuide">아직 공개된 강의록이 없습니다. 곧 올라올 예정이에요.</p>
+          <p className="formGuide">아직 공개된 학습자료가 없습니다. 곧 올라올 예정이에요.</p>
         )}
         {lectures.map((lecture) => (
           <Link key={lecture.slug} href={`/lecture/${lecture.slug}`} className="trackCard">

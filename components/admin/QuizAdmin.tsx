@@ -198,7 +198,7 @@ export default function QuizAdmin() {
             제출 현황
           </Link>
           <Link className="ghostButton" href="/admin/lectures">
-            강의록 관리
+            학습자료 관리
           </Link>
           <button className="primaryButton" type="button" onClick={() => openEditor()}>
             새 퀴즈 만들기

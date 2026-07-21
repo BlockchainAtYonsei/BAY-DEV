@@ -46,7 +46,7 @@ export default function AdminDashboard() {
           퀴즈 관리
         </Link>
         <Link className="ghostButton" href="/admin/lectures">
-          강의록 관리
+          학습자료 관리
         </Link>
         <AdminToolbar
           filter={filter}

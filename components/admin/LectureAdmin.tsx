@@ -54,7 +54,7 @@ function emptyEditor(): EditorState {
     id: null,
     slug: "",
     title: "",
-    badge: "강의록",
+    badge: "학습자료",
     track: "ethereum-core",
     order: 1,
     format: "markdown",
@@ -115,7 +115,7 @@ export default function LectureAdmin() {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setStatus(isNew ? "강의록이 생성되었습니다." : "강의록이 수정되었습니다.");
+      setStatus(isNew ? "학습자료가 생성되었습니다." : "학습자료가 수정되었습니다.");
       setEditor(null);
       await reload();
     } catch (error) {
@@ -143,12 +143,12 @@ export default function LectureAdmin() {
   }
 
   async function removeLecture(lecture: Lecture) {
-    if (!window.confirm(`"${lecture.title}" 강의록을 삭제할까요? 되돌릴 수 없습니다.`)) return;
+    if (!window.confirm(`"${lecture.title}" 학습자료를 삭제할까요? 되돌릴 수 없습니다.`)) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/lectures/${lecture.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error((await res.json()).error);
-      setStatus("강의록이 삭제되었습니다.");
+      setStatus("학습자료가 삭제되었습니다.");
       await reload();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "삭제에 실패했습니다.");
@@ -187,7 +187,7 @@ export default function LectureAdmin() {
   return (
     <main className="adminShell">
       <section className="adminHeader">
-        <h1>강의록 관리</h1>
+        <h1>학습자료 관리</h1>
         <div className="adminActions">
           <Link className="ghostButton" href="/admin">
             제출 현황
@@ -196,7 +196,7 @@ export default function LectureAdmin() {
             퀴즈 관리
           </Link>
           <button className="primaryButton" type="button" onClick={() => openEditor()}>
-            새 강의록 만들기
+            새 학습자료 만들기
           </button>
         </div>
       </section>
@@ -218,7 +218,7 @@ export default function LectureAdmin() {
           <tbody>
             {lectures.length === 0 && (
               <tr>
-                <td colSpan={6}>아직 강의록이 없습니다. 새 강의록을 만들어 보세요.</td>
+                <td colSpan={6}>아직 학습자료가 없습니다. 새 학습자료를 만들어 보세요.</td>
               </tr>
             )}
             {lectures.map((lecture) => (
@@ -268,7 +268,7 @@ export default function LectureAdmin() {
 
       {editor && preview && (
         <section className="quizEditor">
-          <h2 className="sectionTitle">{editor.id ? "강의록 편집" : "새 강의록"}</h2>
+          <h2 className="sectionTitle">{editor.id ? "학습자료 편집" : "새 학습자료"}</h2>
           <div className="quizEditorGrid">
             <div className="submissionForm">
               <label>
@@ -361,12 +361,12 @@ export default function LectureAdmin() {
                     })
                   }
                 >
-                  <option value="markdown">마크다운 강의록</option>
+                  <option value="markdown">마크다운 학습자료</option>
                   <option value="html">HTML 인터랙티브 자료</option>
                 </select>
               </label>
               <label>
-                {editor.format === "html" ? "HTML 원문" : "강의록 마크다운"}
+                {editor.format === "html" ? "HTML 원문" : "학습자료 마크다운"}
                 <textarea
                   className="quizMarkdownInput"
                   value={editor.markdown}

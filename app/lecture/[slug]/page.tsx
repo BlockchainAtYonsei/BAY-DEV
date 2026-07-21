@@ -22,7 +22,7 @@ export default async function LecturePage({
     return (
       <main className="lectureFrameShell">
         <div className="lectureFrameBar">
-          <BackButton fallback="/lectures" label="강의록" />
+          <BackButton fallback="/lectures" label="학습자료" />
           <span>{lecture.title}</span>
         </div>
         <iframe
@@ -38,7 +38,7 @@ export default async function LecturePage({
 
   return (
     <main className="shell lectureShell">
-      <BackButton fallback="/lectures" label="강의록 목록" />
+      <BackButton fallback="/lectures" label="학습자료 목록" />
       <PageHeader
         badge={lecture.badge}
         title={parsed.title || lecture.title}

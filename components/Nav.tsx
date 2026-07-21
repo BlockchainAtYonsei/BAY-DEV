@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
   { href: "/", label: "과제" },
-  { href: "/lectures", label: "강의록" },
+  { href: "/lectures", label: "학습자료" },
   { href: "/my", label: "내 제출" }
 ];
 
@@ -16,7 +16,7 @@ function isActive(href: string, pathname: string) {
     );
   }
   if (href === "/lectures") {
-    // 목록(/lectures)과 상세(/lecture/[slug]) 모두 강의록 탭으로 취급
+    // 목록(/lectures)과 상세(/lecture/[slug]) 모두 학습자료 탭으로 취급
     return pathname.startsWith("/lecture");
   }
   return pathname.startsWith(href);

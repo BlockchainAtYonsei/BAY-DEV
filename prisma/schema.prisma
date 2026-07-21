@@ -29,7 +29,7 @@ model Lecture {
   id        String   @id @default(uuid())
   slug      String   @unique
   title     String
-  badge     String   @default("강의록")
+  badge     String   @default("학습자료")
   track     String   @default("")
   /** 트랙 안에서의 정렬 순서 (회차) */
   order     Int      @default(0)
