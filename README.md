@@ -104,6 +104,7 @@ VAPID_SUBJECT=mailto:연락처
 npm install
 npx prisma db push        # 스키마 → SQLite 반영 (실행 전 data/bay18.db 백업 권장)
 npm run dev
+npm test                  # 핵심 로직 테스트 (파서·채점·주차 계산 등, tests/)
 
 # 배포 (운영 = docker 컨테이너 bay-dev, data/ 디렉토리를 호스트와 공유)
 docker compose up -d --build
