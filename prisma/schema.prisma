@@ -77,6 +77,18 @@ model Comment {
   @@index([quizId, questionIndex])
 }
 
+model PushSubscription {
+  id        String   @id @default(uuid())
+  wallet    String
+  /** 브라우저 푸시 엔드포인트 (기기·브라우저마다 다르다) */
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([wallet])
+}
+
 model Submission {
   id        String   @id @default(uuid())
   wallet    String

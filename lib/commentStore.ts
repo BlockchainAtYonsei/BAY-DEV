@@ -160,6 +160,15 @@ export const commentStore = {
     });
   },
 
+  /** 스레드(최상위 글 + 그 답글들) 참여자 지갑 목록 (중복 제거, 삭제 글 포함) */
+  async threadParticipants(parentId: string): Promise<string[]> {
+    const rows = await prisma.comment.findMany({
+      where: { OR: [{ id: parentId }, { parentId }] },
+      select: { wallet: true }
+    });
+    return [...new Set(rows.map((r) => r.wallet))];
+  },
+
   /** 소프트 삭제 */
   async softDelete(id: string) {
     return prisma.comment.update({

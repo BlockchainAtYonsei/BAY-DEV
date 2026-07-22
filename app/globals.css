@@ -1496,3 +1496,9 @@ td {
     width: 100vw;
   }
 }
+
+.pushToggle {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}

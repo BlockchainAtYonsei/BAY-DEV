@@ -4,6 +4,7 @@ import { userStore } from "@/lib/userStore";
 import { quizStore } from "@/lib/quizStore";
 import { commentStore } from "@/lib/commentStore";
 import { parseQuiz } from "@/lib/quiz/parse";
+import { sendPushToWallets } from "@/lib/push";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -113,6 +114,17 @@ export async function POST(request: Request, { params }: Params) {
       body: text,
       parentId: parent.id
     });
+
+    // 스레드 참여자(글쓴이 + 기존 답글 작성자)에게 푸시 — 응답을 막지 않게 백그라운드로
+    const participants = (await commentStore.threadParticipants(parent.id)).filter(
+      (w) => w !== session.wallet
+    );
+    const preview = text.length > 60 ? `${text.slice(0, 60)}…` : text;
+    void sendPushToWallets(participants, {
+      title: `Q${questionIndex + 1} 토론에 새 답글`,
+      body: preview,
+      url: `/quiz/${slug}`
+    }).catch(() => {});
   }
 
   const admin = await isAdmin();

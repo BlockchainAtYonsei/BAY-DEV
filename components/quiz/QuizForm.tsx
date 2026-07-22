@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import AuthGate from "@/components/AuthGate";
 import Markdown from "@/components/quiz/Markdown";
 import CommunityPanel from "@/components/quiz/CommunityPanel";
+import PushToggle from "@/components/PushToggle";
 import { useSession } from "@/hooks/useSession";
 import type { PublicQuizQuestion, QuizAnswer } from "@/lib/quiz/parse";
 
@@ -224,6 +225,9 @@ export default function QuizForm({ slug }: Props) {
             {submittedAt &&
               ` · 마지막 제출 ${new Date(submittedAt).toLocaleString("ko-KR")}`}
           </strong>
+          <div style={{ marginTop: 10 }}>
+            <PushToggle />
+          </div>
           {!submittedAt && draftRestored && (
             <small className="quizHint" style={{ display: "block", marginTop: 6 }}>
               작성 중이던 답안을 이 브라우저에서 불러왔습니다. 아직 제출되지는 않았어요.
