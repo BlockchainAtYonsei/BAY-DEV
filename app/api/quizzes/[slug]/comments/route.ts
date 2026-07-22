@@ -36,8 +36,7 @@ export async function GET(request: Request, { params }: Params) {
   const admin = await isAdmin();
   const comments = await commentStore.listForQuestion(quiz.id, questionIndex, {
     viewerWallet: session.wallet,
-    adminWallets: getAdminWallets(),
-    includeNames: admin // 이름은 관리자 세션에서만 내려간다
+    adminWallets: getAdminWallets()
   });
 
   return NextResponse.json({ comments, isAdminViewer: admin });
@@ -119,8 +118,7 @@ export async function POST(request: Request, { params }: Params) {
   const admin = await isAdmin();
   const comments = await commentStore.listForQuestion(quiz.id, questionIndex, {
     viewerWallet: session.wallet,
-    adminWallets: getAdminWallets(),
-    includeNames: admin
+    adminWallets: getAdminWallets()
   });
 
   return NextResponse.json({ comments, isAdminViewer: admin });

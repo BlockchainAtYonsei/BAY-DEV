@@ -10,8 +10,6 @@ export type CommentNode = {
   isSubmission: boolean;
   isAdmin: boolean;
   isMine: boolean;
-  /** 관리자 뷰에서만 채워진다 (이름은 서버장만 볼 수 있다) */
-  name?: string;
   createdAt: string;
   replies: CommentNode[];
 };
@@ -34,12 +32,10 @@ type ViewOptions = {
   viewerWallet: string | null;
   /** 관리자 배지를 붙일 지갑 집합 */
   adminWallets: Set<string>;
-  /** 관리자 세션이면 이름을 함께 내려준다 */
-  includeNames: boolean;
 };
 
-/** 최상위 → 대댓글 2단 트리로 조립. 이름은 관리자 뷰에서만 붙인다. */
-function buildTree(rows: CommentRow[], opts: ViewOptions, names: Map<string, string>): CommentNode[] {
+/** 최상위 → 대댓글 2단 트리로 조립. 작성자는 지갑 주소로만 식별한다. */
+function buildTree(rows: CommentRow[], opts: ViewOptions): CommentNode[] {
   const toNode = (row: CommentRow): CommentNode => {
     const deleted = row.deletedAt !== null;
     const node: CommentNode = {
@@ -53,7 +49,6 @@ function buildTree(rows: CommentRow[], opts: ViewOptions, names: Map<string, str
       createdAt: row.createdAt.toISOString(),
       replies: []
     };
-    if (opts.includeNames) node.name = names.get(row.wallet) || "(이름 미등록)";
     return node;
   };
 
@@ -93,14 +88,7 @@ export const commentStore = {
       where: { quizId, questionIndex }
     })) as CommentRow[];
 
-    let names = new Map<string, string>();
-    if (opts.includeNames && rows.length > 0) {
-      const wallets = [...new Set(rows.map((r) => r.wallet))];
-      const users = await prisma.user.findMany({ where: { wallet: { in: wallets } } });
-      names = new Map(users.map((u) => [u.wallet, u.name]));
-    }
-
-    return buildTree(rows, opts, names);
+    return buildTree(rows, opts);
   },
 
   /** 문항별 댓글 수 (질문 인덱스 → 개수), 삭제 제외 */

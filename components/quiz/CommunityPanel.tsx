@@ -11,7 +11,6 @@ type CommentNode = {
   isSubmission: boolean;
   isAdmin: boolean;
   isMine: boolean;
-  name?: string;
   createdAt: string;
   replies: CommentNode[];
 };
@@ -154,7 +153,6 @@ export default function CommunityPanel({
           {node.isSubmission && <span className="cmtBadge cmtBadgeSub">제출 답</span>}
           {node.isAdmin && <span className="cmtBadge">관리자</span>}
           {node.isMine && <span className="cmtBadge cmtBadgeMine">나</span>}
-          {node.name && <span className="cmtName">· {node.name}</span>}
           <time className="cmtTime">
             {new Date(node.createdAt).toLocaleString("ko-KR", {
               month: "numeric",
