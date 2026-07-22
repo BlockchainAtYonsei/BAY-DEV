@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AuthGate from "@/components/AuthGate";
 import Markdown from "@/components/quiz/Markdown";
+import CommunityPanel from "@/components/quiz/CommunityPanel";
 import { useSession } from "@/hooks/useSession";
 import type { PublicQuizQuestion, QuizAnswer } from "@/lib/quiz/parse";
 
@@ -28,10 +29,15 @@ export default function QuizForm({ slug }: Props) {
   const [answers, setAnswers] = useState<QuizAnswer[]>([]);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [status, setStatus] = useState("");
-  const [busy, setBusy] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   // 임시저장 로드가 끝나기 전에는 localStorage에 쓰지 않는다(빈 답으로 덮어쓰기 방지)
   const [ready, setReady] = useState(false);
+  // 커뮤니티(문항 토론) 패널 상태
+  const [openQ, setOpenQ] = useState<number | null>(null);
+  const [counts, setCounts] = useState<Record<number, number>>({});
+  // 문항별 제출 상태
+  const [savingQ, setSavingQ] = useState<number | null>(null);
+  const [savedQ, setSavedQ] = useState<number | null>(null);
 
   // 지갑별로 임시저장을 분리해 한 브라우저를 공유해도 답이 섞이지 않게 한다
   const draftKey = `bay-quiz-draft:${slug}:${wallet || "anon"}`;
@@ -80,6 +86,27 @@ export default function QuizForm({ slug }: Props) {
     load();
   }, [load, loggedIn]);
 
+  // 문항별 댓글 수(뱃지)를 불러온다
+  useEffect(() => {
+    if (!loggedIn) return;
+    fetch(`/api/quizzes/${slug}/comments`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.counts) setCounts(data.counts);
+      })
+      .catch(() => {});
+  }, [slug, loggedIn]);
+
+  // 패널 열렸을 때 ESC로 닫기
+  useEffect(() => {
+    if (openQ === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenQ(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openQ]);
+
   // 답을 바꿀 때마다 브라우저에 임시저장 (제출 여부와 무관하게 계속 기억)
   useEffect(() => {
     if (!ready) return;
@@ -109,11 +136,37 @@ export default function QuizForm({ slug }: Props) {
     });
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
+  // 문항 답을 사람이 읽을 텍스트로 (제출글 본문)
+  function answerText(question: PublicQuizQuestion, ans: QuizAnswer): string {
+    if (question.type === "text") return typeof ans === "string" ? ans.trim() : "";
+    if (question.type === "single")
+      return typeof ans === "number" ? question.options[ans] ?? "" : "";
+    if (question.type === "multiple")
+      return Array.isArray(ans)
+        ? ans.map((i) => question.options[i]).filter(Boolean).join(", ")
+        : "";
+    return "";
+  }
+
+  async function refreshCounts() {
+    const data = await fetch(`/api/quizzes/${slug}/comments`)
+      .then((res) => (res.ok ? res.json() : null))
+      .catch(() => null);
+    if (data?.counts) setCounts(data.counts);
+  }
+
+  // 문항 하나를 제출: 답안을 저장하고, 그 문항 토론에 최상위 글로 올린다
+  async function submitQuestion(index: number) {
+    const question = quiz!.questions[index];
+    const text = answerText(question, answers[index]);
+    if (!text) {
+      setStatus(`Q${index + 1}에 먼저 답을 작성해 주세요.`);
+      return;
+    }
+    setSavingQ(index);
     setStatus("");
     try {
+      // 1) 답안 저장(기록용)
       const res = await fetch(`/api/quizzes/${slug}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -122,11 +175,23 @@ export default function QuizForm({ slug }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setSubmittedAt(data.myResponse.updatedAt);
-      setStatus("응답이 저장되었습니다. 언제든지 다시 제출하면 수정됩니다.");
+
+      // 2) 제출 답을 그 문항 토론에 최상위 글로 등록
+      const c = await fetch(`/api/quizzes/${slug}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionIndex: index, body: text, isSubmission: true })
+      });
+      const cData = await c.json();
+      if (!c.ok) throw new Error(cData.error);
+
+      await refreshCounts();
+      setSavedQ(index);
+      window.setTimeout(() => setSavedQ((cur) => (cur === index ? null : cur)), 2500);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "제출에 실패했습니다.");
     } finally {
-      setBusy(false);
+      setSavingQ(null);
     }
   }
 
@@ -142,6 +207,8 @@ export default function QuizForm({ slug }: Props) {
   ).length;
 
   return (
+    <div className="qcStage" data-open={openQ !== null}>
+      <div className="qcMain">
     <AuthGate auth={auth}>
       {quiz.intro && (
         <section className="guide">
@@ -149,7 +216,7 @@ export default function QuizForm({ slug }: Props) {
         </section>
       )}
 
-      <form className="submissionForm quizForm" onSubmit={submit}>
+      <form className="submissionForm quizForm" onSubmit={(e) => e.preventDefault()}>
         <div>
           <span className="label">진행 상황</span>
           <strong>
@@ -212,18 +279,47 @@ export default function QuizForm({ slug }: Props) {
                 )}
               </div>
             )}
+
+            <div className="quizQuestionActions">
+              <button
+                type="button"
+                className={`qcOpenBtn${openQ === question.index ? " isActive" : ""}`}
+                onClick={() => setOpenQ(question.index)}
+              >
+                💬 이 문항 토론
+                {counts[question.index] ? (
+                  <span className="qcOpenCount">{counts[question.index]}</span>
+                ) : null}
+              </button>
+              <button
+                type="button"
+                className="primaryButton quizSubmitBtn"
+                disabled={savingQ !== null}
+                onClick={() => submitQuestion(question.index)}
+              >
+                {savingQ === question.index
+                  ? "제출 중…"
+                  : savedQ === question.index
+                    ? "제출됨 ✓"
+                    : "제출"}
+              </button>
+            </div>
           </fieldset>
         ))}
 
-        <button
-          className="primaryButton wide"
-          disabled={busy || answeredCount === 0}
-          type="submit"
-        >
-          {submittedAt ? "응답 수정하기" : "응답 제출"}
-        </button>
         {status && <p className="status">{status}</p>}
       </form>
     </AuthGate>
+      </div>
+
+      <CommunityPanel
+        slug={slug}
+        questionIndex={openQ ?? 0}
+        prompt={openQ !== null ? quiz.questions[openQ].prompt : ""}
+        open={openQ !== null}
+        onClose={() => setOpenQ(null)}
+        onCountChange={(qi, c) => setCounts((prev) => ({ ...prev, [qi]: c }))}
+      />
+    </div>
   );
 }

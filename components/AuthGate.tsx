@@ -15,7 +15,7 @@ type Props = {
  * 각 단계의 UI는 개별 컴포넌트가 담당하고, 여기서는 분기만 한다.
  */
 export default function AuthGate({ auth, children }: Props) {
-  const { session, loading, busy, error, isConnected, connect, signIn, register, logout } = auth;
+  const { session, loading, busy, error, isConnected, connect, disconnect, signIn, register, logout } = auth;
 
   if (loading) {
     // 세션 확인 중 빈 화면 대신 자리표시자를 보여줘 늦게 뜨는 느낌을 줄인다
@@ -29,6 +29,7 @@ export default function AuthGate({ auth, children }: Props) {
         busy={busy}
         error={error}
         onConnect={connect}
+        onDisconnect={disconnect}
         onSignIn={signIn}
       />
     );
@@ -41,6 +42,7 @@ export default function AuthGate({ auth, children }: Props) {
         busy={busy}
         error={error}
         onRegister={register}
+        onLogout={logout}
       />
     );
   }

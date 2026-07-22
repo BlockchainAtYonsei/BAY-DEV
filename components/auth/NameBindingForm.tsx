@@ -8,9 +8,10 @@ type Props = {
   busy: boolean;
   error: string;
   onRegister: (name: string) => Promise<void>;
+  onLogout: () => Promise<void>;
 };
 
-export default function NameBindingForm({ wallet, busy, error, onRegister }: Props) {
+export default function NameBindingForm({ wallet, busy, error, onRegister, onLogout }: Props) {
   const [name, setName] = useState("");
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -44,6 +45,14 @@ export default function NameBindingForm({ wallet, busy, error, onRegister }: Pro
         type="submit"
       >
         이름 등록
+      </button>
+      <button
+        className="ghostButton wide"
+        disabled={busy}
+        type="button"
+        onClick={onLogout}
+      >
+        로그아웃하고 다른 지갑으로
       </button>
       {error && <p className="status">{error}</p>}
     </form>

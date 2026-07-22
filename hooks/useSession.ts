@@ -16,6 +16,7 @@ export type SessionState = {
   error: string;
   isConnected: boolean;
   connect: () => void;
+  disconnect: () => Promise<void>;
   signIn: () => Promise<void>;
   register: (name: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -45,6 +46,12 @@ export function useSession(): SessionState {
     setError("");
     openConnectModal?.();
   }, [openConnectModal]);
+
+  // 서명 전 단계에서 연결만 끊는다(서버 세션은 아직 없음) → 다른 계정으로 다시 연결 가능
+  const disconnect = useCallback(async () => {
+    setError("");
+    await disconnectAsync().catch(() => {});
+  }, [disconnectAsync]);
 
   const signIn = useCallback(async () => {
     if (!address) return;
@@ -109,5 +116,5 @@ export function useSession(): SessionState {
     setError("");
   }, [disconnectAsync]);
 
-  return { session, loading, busy, error, isConnected, connect, signIn, register, logout };
+  return { session, loading, busy, error, isConnected, connect, disconnect, signIn, register, logout };
 }

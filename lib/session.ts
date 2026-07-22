@@ -154,3 +154,13 @@ export async function clearAdminSession() {
 export function getAdminPassword() {
   return process.env.ADMIN_PASSWORD || "bay18-admin";
 }
+
+/** 관리자 배지를 붙일 지갑 주소 목록 (소문자) */
+export function getAdminWallets(): Set<string> {
+  return new Set(
+    (process.env.ADMIN_WALLETS || "")
+      .split(",")
+      .map((w) => w.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
