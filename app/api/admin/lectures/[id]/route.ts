@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { isAdmin } from "@/lib/session";
+import { requireAdmin } from "@/lib/api/guards";
 import { lectureStore } from "@/lib/lectureStore";
 import { parseLectureInput } from "@/lib/lecture/validation";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PUT(request: Request, { params }: Params) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
-  }
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.ok) return adminGuard.res;
   const { id } = await params;
   const lecture = await lectureStore.findById(id);
   if (!lecture) {
@@ -44,9 +43,8 @@ export async function PUT(request: Request, { params }: Params) {
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
-  }
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.ok) return adminGuard.res;
   const { id } = await params;
   const lecture = await lectureStore.findById(id);
   if (!lecture) {

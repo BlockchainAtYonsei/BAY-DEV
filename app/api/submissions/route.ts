@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getWalletSession } from "@/lib/session";
+import { requireRegisteredUser } from "@/lib/api/guards";
 import { parseSubmissionInput } from "@/lib/validation";
 import { submissionStore } from "@/lib/submissionStore";
-import { userStore } from "@/lib/userStore";
 import { getCurrentWeekKey } from "@/lib/week";
 import { findTrack } from "@/lib/tracks";
 
@@ -23,15 +23,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await getWalletSession();
-  if (!session) {
-    return NextResponse.json({ error: "지갑 로그인이 필요합니다." }, { status: 401 });
-  }
-
-  const user = await userStore.findByWallet(session.wallet);
-  if (!user) {
-    return NextResponse.json({ error: "이름 등록이 필요합니다." }, { status: 403 });
-  }
+  const userGuard = await requireRegisteredUser();
+  if (!userGuard.ok) return userGuard.res;
+  const user = userGuard.value;
 
   const parsed = parseSubmissionInput(await request.json().catch(() => null));
   if (!parsed.ok) {
@@ -40,7 +34,7 @@ export async function POST(request: Request) {
 
   const submission = await submissionStore.upsertByWalletAndWeek(
     {
-      wallet: session.wallet,
+      wallet: user.wallet,
       name: user.name,
       track: parsed.input.track.slug,
       zombieUrl: parsed.input.zombieUrl,

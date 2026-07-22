@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
-import { getWalletSession, isAdmin, getAdminWallets } from "@/lib/session";
-import { userStore } from "@/lib/userStore";
-import { quizStore } from "@/lib/quizStore";
+import { isAdmin, getAdminWallets } from "@/lib/session";
+import {
+  jsonError,
+  requirePublishedQuiz,
+  requireRegisteredUser,
+  requireWallet
+} from "@/lib/api/guards";
 import { commentStore } from "@/lib/commentStore";
 import { parseQuiz } from "@/lib/quiz/parse";
 import { sendPushToWallets } from "@/lib/push";
@@ -11,16 +15,14 @@ type Params = { params: Promise<{ slug: string }> };
 const MAX_BODY = 2000;
 
 export async function GET(request: Request, { params }: Params) {
-  const session = await getWalletSession();
-  if (!session) {
-    return NextResponse.json({ error: "지갑 로그인이 필요합니다." }, { status: 401 });
-  }
+  const sessionGuard = await requireWallet();
+  if (!sessionGuard.ok) return sessionGuard.res;
+  const session = sessionGuard.value;
 
   const { slug } = await params;
-  const quiz = await quizStore.findBySlug(slug);
-  if (!quiz || !quiz.published) {
-    return NextResponse.json({ error: "퀴즈를 찾을 수 없습니다." }, { status: 404 });
-  }
+  const quizGuard = await requirePublishedQuiz(slug);
+  if (!quizGuard.ok) return quizGuard.res;
+  const quiz = quizGuard.value;
 
   // q 파라미터가 없으면 문항별 댓글 수만 내려준다 (뱃지용)
   const q = new URL(request.url).searchParams.get("q");
@@ -31,7 +33,7 @@ export async function GET(request: Request, { params }: Params) {
 
   const questionIndex = Number(q);
   if (!Number.isInteger(questionIndex) || questionIndex < 0) {
-    return NextResponse.json({ error: "문항 번호가 올바르지 않습니다." }, { status: 400 });
+    return jsonError("문항 번호가 올바르지 않습니다.", 400);
   }
 
   const admin = await isAdmin();
@@ -44,20 +46,14 @@ export async function GET(request: Request, { params }: Params) {
 }
 
 export async function POST(request: Request, { params }: Params) {
-  const session = await getWalletSession();
-  if (!session) {
-    return NextResponse.json({ error: "지갑 로그인이 필요합니다." }, { status: 401 });
-  }
-  const user = await userStore.findByWallet(session.wallet);
-  if (!user) {
-    return NextResponse.json({ error: "이름 등록이 필요합니다." }, { status: 403 });
-  }
+  const userGuard = await requireRegisteredUser();
+  if (!userGuard.ok) return userGuard.res;
+  const session = userGuard.value;
 
   const { slug } = await params;
-  const quiz = await quizStore.findBySlug(slug);
-  if (!quiz || !quiz.published) {
-    return NextResponse.json({ error: "퀴즈를 찾을 수 없습니다." }, { status: 404 });
-  }
+  const quizGuard = await requirePublishedQuiz(slug);
+  if (!quizGuard.ok) return quizGuard.res;
+  const quiz = quizGuard.value;
 
   const body = (await request.json().catch(() => null)) as {
     questionIndex?: number;
@@ -74,15 +70,15 @@ export async function POST(request: Request, { params }: Params) {
     questionIndex < 0 ||
     questionIndex >= questionCount
   ) {
-    return NextResponse.json({ error: "문항 번호가 올바르지 않습니다." }, { status: 400 });
+    return jsonError("문항 번호가 올바르지 않습니다.", 400);
   }
 
   const text = typeof body?.body === "string" ? body.body.trim() : "";
   if (!text) {
-    return NextResponse.json({ error: "내용을 입력해 주세요." }, { status: 400 });
+    return jsonError("내용을 입력해 주세요.", 400);
   }
   if (text.length > MAX_BODY) {
-    return NextResponse.json({ error: "내용이 너무 깁니다." }, { status: 400 });
+    return jsonError("내용이 너무 깁니다.", 400);
   }
 
   if (body?.isSubmission) {
@@ -96,7 +92,7 @@ export async function POST(request: Request, { params }: Params) {
   } else {
     // 대댓글: 부모가 같은 퀴즈·문항의 최상위 글이어야 한다 (2단 캡)
     if (!body?.parentId) {
-      return NextResponse.json({ error: "답글 대상이 필요합니다." }, { status: 400 });
+      return jsonError("답글 대상이 필요합니다.", 400);
     }
     const parent = await commentStore.findById(body.parentId);
     if (
@@ -105,7 +101,7 @@ export async function POST(request: Request, { params }: Params) {
       parent.questionIndex !== questionIndex ||
       parent.parentId !== null
     ) {
-      return NextResponse.json({ error: "답글 대상을 찾을 수 없습니다." }, { status: 400 });
+      return jsonError("답글 대상을 찾을 수 없습니다.", 400);
     }
     await commentStore.create({
       quizId: quiz.id,

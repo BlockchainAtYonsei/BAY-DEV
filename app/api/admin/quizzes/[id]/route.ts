@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isAdmin } from "@/lib/session";
+import { requireAdmin } from "@/lib/api/guards";
 import { quizStore } from "@/lib/quizStore";
 import { parseQuiz } from "@/lib/quiz/parse";
 import { parseQuizInput } from "@/lib/quiz/validation";
@@ -8,9 +8,8 @@ type Params = { params: Promise<{ id: string }> };
 
 /** 퀴즈 상세 + 파싱된 문항(정답 포함) + 전체 응답 */
 export async function GET(_request: Request, { params }: Params) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
-  }
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.ok) return adminGuard.res;
   const { id } = await params;
   const quiz = await quizStore.findById(id);
   if (!quiz) {
@@ -22,9 +21,8 @@ export async function GET(_request: Request, { params }: Params) {
 }
 
 export async function PUT(request: Request, { params }: Params) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
-  }
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.ok) return adminGuard.res;
   const { id } = await params;
   const quiz = await quizStore.findById(id);
   if (!quiz) {
@@ -58,9 +56,8 @@ export async function PUT(request: Request, { params }: Params) {
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
-  }
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.ok) return adminGuard.res;
   const { id } = await params;
   const quiz = await quizStore.findById(id);
   if (!quiz) {

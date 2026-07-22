@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { isAdmin } from "@/lib/session";
+import { requireAdmin } from "@/lib/api/guards";
 import { quizStore } from "@/lib/quizStore";
 import { parseQuiz } from "@/lib/quiz/parse";
 import { parseQuizInput } from "@/lib/quiz/validation";
 
 export async function GET() {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
-  }
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.ok) return adminGuard.res;
   const [quizzes, counts] = await Promise.all([
     quizStore.list(),
     quizStore.countResponses()
@@ -22,9 +21,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
-  }
+  const adminGuard = await requireAdmin();
+  if (!adminGuard.ok) return adminGuard.res;
   const parsed = parseQuizInput(await request.json().catch(() => null));
   if ("error" in parsed) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
