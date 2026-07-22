@@ -1,4 +1,4 @@
-import Link from "next/link";
+import ContentCard from "@/components/ContentCard";
 import Nav from "@/components/Nav";
 import PageHeader from "@/components/PageHeader";
 import { TRACKS } from "@/lib/tracks";
@@ -24,18 +24,22 @@ export default function HomeLanding({ quizzes = [] }: Props) {
       <Nav />
       <div className="trackGrid">
         {TRACKS.map((track) => (
-          <Link key={track.slug} href={`/assignments/${track.slug}`} className="trackCard">
-            <span className="trackBadge">{track.badge}</span>
-            <strong>{track.title}</strong>
-            <p>{track.description}</p>
-          </Link>
+          <ContentCard
+            key={track.slug}
+            href={`/assignments/${track.slug}`}
+            badge={track.badge}
+            title={track.title}
+            description={track.description}
+          />
         ))}
         {quizzes.map((quiz) => (
-          <Link key={quiz.slug} href={`/quiz/${quiz.slug}`} className="trackCard">
-            <span className="trackBadge">{quiz.badge}</span>
-            <strong>{quiz.title}</strong>
-            <p>문항에 응답하고 제출해 주세요.</p>
-          </Link>
+          <ContentCard
+            key={quiz.slug}
+            href={`/quiz/${quiz.slug}`}
+            badge={quiz.badge}
+            title={quiz.title}
+            description="문항에 응답하고 제출해 주세요."
+          />
         ))}
       </div>
     </main>

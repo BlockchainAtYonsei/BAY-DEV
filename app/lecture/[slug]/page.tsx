@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import BackButton from "@/components/BackButton";
 import Nav from "@/components/Nav";
 import PageHeader from "@/components/PageHeader";
+import LectureFrame from "@/components/lecture/LectureFrame";
 import LectureView from "@/components/lecture/LectureView";
 import { parseLecture } from "@/lib/lecture/parse";
 import { lectureStore } from "@/lib/lectureStore";
@@ -19,19 +20,7 @@ export default async function LecturePage({
 
   // 인터랙티브 HTML 자료는 전체 화면 iframe으로 보여준다
   if (lecture.format === "html") {
-    return (
-      <main className="lectureFrameShell">
-        <div className="lectureFrameBar">
-          <BackButton fallback="/lectures" label="학습자료" />
-          <span>{lecture.title}</span>
-        </div>
-        <iframe
-          className="lectureFrame"
-          src={`/lecture/${lecture.slug}/raw`}
-          title={lecture.title}
-        />
-      </main>
-    );
+    return <LectureFrame slug={lecture.slug} title={lecture.title} />;
   }
 
   const parsed = parseLecture(lecture.markdown);
