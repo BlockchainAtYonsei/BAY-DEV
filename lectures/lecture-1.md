@@ -284,3 +284,4 @@ geth attach로 JS 콘솔 진입
 - `eth_sendRawTransaction`의 착지 지점, Tour로 훑은 Go를 실전에서
 - 멤풀 입장 검사: 서명 복원, nonce 검증, 잔액 확인
 - 같은 nonce tx의 교체 규칙 (가스 입찰)
+

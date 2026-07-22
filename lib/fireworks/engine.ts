@@ -50,19 +50,40 @@ export class FireworksEngine {
   private elapsed = 0;
   private raf = 0;
   private lastTime = 0;
+  private paused = false;
   private halfWidth = 50;
   private worldPerPx = 0.1;
 
   constructor(private canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
+    this.renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: false,
+      // 배경 장식이라 통합 GPU로 충분하다 — 노트북 배터리를 아낀다
+      powerPreference: "low-power"
+    });
     // 배경 장식이라 1.5배 픽셀 밀도면 충분하다 — 레티나에서 필레이트를 크게 아낀다
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.texture = makeGlowTexture();
     this.resize();
     window.addEventListener("resize", this.resize);
+    document.addEventListener("visibilitychange", this.onVisibility);
     this.lastTime = performance.now();
     this.loop();
   }
+
+  // 탭이 안 보이는 동안은 완전히 멈춘다 (보이는 화면은 그대로, GPU·배터리만 절약)
+  private onVisibility = () => {
+    if (document.hidden) {
+      this.paused = true;
+      cancelAnimationFrame(this.raf);
+    } else if (this.paused) {
+      this.paused = false;
+      // 멈춰 있던 시간만큼 dt가 튀지 않도록 시계를 다시 맞춘다
+      this.lastTime = performance.now();
+      this.loop();
+    }
+  };
 
   private resize = () => {
     const w = window.innerWidth;
@@ -248,6 +269,7 @@ export class FireworksEngine {
   }
 
   private loop = () => {
+    if (this.paused) return;
     this.raf = requestAnimationFrame(this.loop);
     const now = performance.now();
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
@@ -280,6 +302,7 @@ export class FireworksEngine {
   dispose() {
     cancelAnimationFrame(this.raf);
     window.removeEventListener("resize", this.resize);
+    document.removeEventListener("visibilitychange", this.onVisibility);
     for (const fw of this.fireworks) {
       this.scene.remove(fw.points);
       fw.geometry.dispose();
