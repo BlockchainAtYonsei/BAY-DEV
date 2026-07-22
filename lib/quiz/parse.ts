@@ -43,6 +43,12 @@ export type QuizAnswer = number | number[] | string | null;
 
 const OPTION_RE = /^[-*]\s*\[([ xX])\]\s+(.*)$/;
 
+/** 보기·정답 개수로 문항 유형을 판정한다 */
+function resolveQuestionType(optionCount: number, correctCount: number): QuizQuestionType {
+  if (optionCount === 0) return "text";
+  return correctCount > 1 ? "multiple" : "single";
+}
+
 export function parseQuiz(markdown: string): ParsedQuiz {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
 
@@ -59,7 +65,7 @@ export function parseQuiz(markdown: string): ParsedQuiz {
       index: questions.length,
       prompt,
       body: bodyLines.join("\n").trim(),
-      type: options.length === 0 ? "text" : correct.length > 1 ? "multiple" : "single",
+      type: resolveQuestionType(options.length, correct.length),
       options,
       correct
     });

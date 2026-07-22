@@ -34,47 +34,52 @@ export default function PushToggle() {
     })();
   }, []);
 
+  /** 권한 요청 → 브라우저 구독 생성 → 서버 등록. 최종 상태를 반환한다. */
+  const enable = useCallback(async (reg: ServiceWorkerRegistration): Promise<PushState> => {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      return permission === "denied" ? "denied" : "off";
+    }
+    const keyRes = await fetch("/api/push");
+    if (!keyRes.ok) throw new Error("push not configured");
+    const { publicKey } = await keyRes.json();
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey)
+    });
+    const res = await fetch("/api/push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sub.toJSON())
+    });
+    if (!res.ok) throw new Error("subscribe failed");
+    return "on";
+  }, []);
+
+  /** 서버 등록 해제 → 브라우저 구독 해지 */
+  const disable = useCallback(async (reg: ServiceWorkerRegistration): Promise<PushState> => {
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await fetch("/api/push", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: sub.endpoint })
+      });
+      await sub.unsubscribe();
+    }
+    return "off";
+  }, []);
+
   const toggle = useCallback(async () => {
     if (state !== "on" && state !== "off") return;
     setState("busy");
     try {
       const reg = await navigator.serviceWorker.ready;
-      if (state === "off") {
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") {
-          setState(permission === "denied" ? "denied" : "off");
-          return;
-        }
-        const keyRes = await fetch("/api/push");
-        if (!keyRes.ok) throw new Error("push not configured");
-        const { publicKey } = await keyRes.json();
-        const sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey)
-        });
-        const res = await fetch("/api/push", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(sub.toJSON())
-        });
-        if (!res.ok) throw new Error("subscribe failed");
-        setState("on");
-      } else {
-        const sub = await reg.pushManager.getSubscription();
-        if (sub) {
-          await fetch("/api/push", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ endpoint: sub.endpoint })
-          });
-          await sub.unsubscribe();
-        }
-        setState("off");
-      }
+      setState(state === "off" ? await enable(reg) : await disable(reg));
     } catch {
       setState("off");
     }
-  }, [state]);
+  }, [state, enable, disable]);
 
   if (state === "loading" || state === "unsupported") return null;
   if (state === "denied") {

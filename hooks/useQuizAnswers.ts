@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PublicQuizQuestion, QuizAnswer } from "@/lib/quiz/parse";
 import { isAnswered } from "@/lib/quiz/answerText";
+import { readDraft, writeDraft } from "@/lib/quiz/draft";
 
 export type PublicQuiz = {
   slug: string;
@@ -38,27 +39,16 @@ export function useQuizAnswers(slug: string, wallet: string | null, loggedIn: bo
     const data = await res.json();
     setQuiz(data.quiz);
 
-    const blank: QuizAnswer[] = new Array(data.quiz.questions.length).fill(null);
+    const questionCount = data.quiz.questions.length;
     if (data.myResponse?.answers?.length) {
+      // 서버에 제출된 응답이 최우선
       setAnswers(data.myResponse.answers);
       setDraftRestored(false);
     } else {
-      let restored = blank;
-      let hadDraft = false;
-      try {
-        const raw = localStorage.getItem(draftKey);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length === blank.length) {
-            restored = parsed;
-            hadDraft = parsed.some(isAnswered);
-          }
-        }
-      } catch {
-        // 손상된 임시저장은 무시
-      }
-      setAnswers(restored);
-      setDraftRestored(hadDraft);
+      // 제출 전이면 브라우저 임시저장을 복원
+      const draft = readDraft(draftKey, questionCount);
+      setAnswers(draft?.answers ?? new Array(questionCount).fill(null));
+      setDraftRestored(Boolean(draft?.hasContent));
     }
     setSubmittedAt(data.myResponse?.updatedAt || null);
     setReady(true);
@@ -70,12 +60,7 @@ export function useQuizAnswers(slug: string, wallet: string | null, loggedIn: bo
 
   // 답을 바꿀 때마다 브라우저에 임시저장 (제출 여부와 무관하게 계속 기억)
   useEffect(() => {
-    if (!ready) return;
-    try {
-      localStorage.setItem(draftKey, JSON.stringify(answers));
-    } catch {
-      // 저장 공간 초과 등은 조용히 무시
-    }
+    if (ready) writeDraft(draftKey, answers);
   }, [answers, ready, draftKey]);
 
   const setAnswer = useCallback((index: number, value: QuizAnswer) => {

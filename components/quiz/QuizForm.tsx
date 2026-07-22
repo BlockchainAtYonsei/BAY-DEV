@@ -9,7 +9,7 @@ import QuizProgress from "@/components/quiz/QuizProgress";
 import { useSession } from "@/hooks/useSession";
 import { useQuizAnswers } from "@/hooks/useQuizAnswers";
 import { useQuestionComments } from "@/hooks/useQuestionComments";
-import { fetchJson } from "@/lib/client/http";
+import { postSubmissionComment, saveQuizAnswers } from "@/lib/client/quizApi";
 import { answerText } from "@/lib/quiz/answerText";
 
 type Props = {
@@ -50,7 +50,13 @@ export default function QuizForm({ slug }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [openQ]);
 
-  // 문항 하나를 제출: 답안을 저장하고, 그 문항 토론에 최상위 글로 올린다
+  // 저장 완료 표시를 잠시 보여줬다가 되돌린다
+  function flashSaved(index: number) {
+    setSavedQ(index);
+    window.setTimeout(() => setSavedQ((cur) => (cur === index ? null : cur)), 2500);
+  }
+
+  // 문항 하나를 제출하는 절차를 조율: 답안 저장 → 토론 게시 → 뱃지 갱신
   async function submitQuestion(index: number) {
     if (!quiz) return;
     const text = answerText(quiz.questions[index], answers[index]);
@@ -61,20 +67,10 @@ export default function QuizForm({ slug }: Props) {
     setSavingQ(index);
     setStatus("");
     try {
-      const data = await fetchJson<{ myResponse: { updatedAt: string } }>(
-        `/api/quizzes/${slug}`,
-        { method: "POST", body: { answers } }
-      );
-      setSubmittedAt(data.myResponse.updatedAt);
-
-      await fetchJson(`/api/quizzes/${slug}/comments`, {
-        method: "POST",
-        body: { questionIndex: index, body: text, isSubmission: true }
-      });
-
+      setSubmittedAt(await saveQuizAnswers(slug, answers));
+      await postSubmissionComment(slug, index, text);
       await refreshCounts();
-      setSavedQ(index);
-      window.setTimeout(() => setSavedQ((cur) => (cur === index ? null : cur)), 2500);
+      flashSaved(index);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "제출에 실패했습니다.");
     } finally {

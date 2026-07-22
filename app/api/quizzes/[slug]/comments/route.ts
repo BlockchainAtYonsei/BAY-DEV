@@ -14,6 +14,79 @@ type Params = { params: Promise<{ slug: string }> };
 
 const MAX_BODY = 2000;
 
+type CommentInput = {
+  questionIndex: number;
+  text: string;
+  parentId: string | null;
+  isSubmission: boolean;
+};
+
+/** 요청 본문 검증만 담당 — 통과하면 정규화된 입력을 돌려준다 */
+function parseCommentInput(
+  raw: unknown,
+  questionCount: number
+): { ok: true; value: CommentInput } | { ok: false; error: string } {
+  const body = raw as {
+    questionIndex?: number;
+    body?: string;
+    parentId?: string | null;
+    isSubmission?: boolean;
+  } | null;
+
+  const questionIndex = body?.questionIndex;
+  if (
+    typeof questionIndex !== "number" ||
+    !Number.isInteger(questionIndex) ||
+    questionIndex < 0 ||
+    questionIndex >= questionCount
+  ) {
+    return { ok: false, error: "문항 번호가 올바르지 않습니다." };
+  }
+
+  const text = typeof body?.body === "string" ? body.body.trim() : "";
+  if (!text) return { ok: false, error: "내용을 입력해 주세요." };
+  if (text.length > MAX_BODY) return { ok: false, error: "내용이 너무 깁니다." };
+
+  return {
+    ok: true,
+    value: {
+      questionIndex,
+      text,
+      parentId: body?.parentId ?? null,
+      isSubmission: body?.isSubmission === true
+    }
+  };
+}
+
+/** 스레드 참여자(작성자 본인 제외)에게 푸시 발송 — 응답을 막지 않게 백그라운드로 */
+async function notifyThreadParticipants(
+  parentId: string,
+  actorWallet: string,
+  slug: string,
+  questionIndex: number,
+  text: string
+) {
+  const participants = (await commentStore.threadParticipants(parentId)).filter(
+    (w) => w !== actorWallet
+  );
+  const preview = text.length > 60 ? `${text.slice(0, 60)}…` : text;
+  await sendPushToWallets(participants, {
+    title: `Q${questionIndex + 1} 토론에 새 답글`,
+    body: preview,
+    url: `/quiz/${slug}`
+  });
+}
+
+/** 문항 토론 트리를 조회자 관점으로 조립해 응답한다 (GET/POST 공용) */
+async function threadResponse(quizId: string, questionIndex: number, viewerWallet: string) {
+  const admin = await isAdmin();
+  const comments = await commentStore.listForQuestion(quizId, questionIndex, {
+    viewerWallet,
+    adminWallets: getAdminWallets()
+  });
+  return NextResponse.json({ comments, isAdminViewer: admin });
+}
+
 export async function GET(request: Request, { params }: Params) {
   const sessionGuard = await requireWallet();
   if (!sessionGuard.ok) return sessionGuard.res;
@@ -36,13 +109,7 @@ export async function GET(request: Request, { params }: Params) {
     return jsonError("문항 번호가 올바르지 않습니다.", 400);
   }
 
-  const admin = await isAdmin();
-  const comments = await commentStore.listForQuestion(quiz.id, questionIndex, {
-    viewerWallet: session.wallet,
-    adminWallets: getAdminWallets()
-  });
-
-  return NextResponse.json({ comments, isAdminViewer: admin });
+  return threadResponse(quiz.id, questionIndex, session.wallet);
 }
 
 export async function POST(request: Request, { params }: Params) {
@@ -55,33 +122,12 @@ export async function POST(request: Request, { params }: Params) {
   if (!quizGuard.ok) return quizGuard.res;
   const quiz = quizGuard.value;
 
-  const body = (await request.json().catch(() => null)) as {
-    questionIndex?: number;
-    body?: string;
-    parentId?: string | null;
-    isSubmission?: boolean;
-  } | null;
-
   const questionCount = parseQuiz(quiz.markdown).questions.length;
-  const questionIndex = body?.questionIndex;
-  if (
-    typeof questionIndex !== "number" ||
-    !Number.isInteger(questionIndex) ||
-    questionIndex < 0 ||
-    questionIndex >= questionCount
-  ) {
-    return jsonError("문항 번호가 올바르지 않습니다.", 400);
-  }
+  const parsed = parseCommentInput(await request.json().catch(() => null), questionCount);
+  if (!parsed.ok) return jsonError(parsed.error, 400);
+  const { questionIndex, text, parentId, isSubmission } = parsed.value;
 
-  const text = typeof body?.body === "string" ? body.body.trim() : "";
-  if (!text) {
-    return jsonError("내용을 입력해 주세요.", 400);
-  }
-  if (text.length > MAX_BODY) {
-    return jsonError("내용이 너무 깁니다.", 400);
-  }
-
-  if (body?.isSubmission) {
+  if (isSubmission) {
     // 퀴즈 답 제출 → 최상위 글로 upsert (지갑·문항당 하나)
     await commentStore.upsertSubmission({
       quizId: quiz.id,
@@ -91,10 +137,10 @@ export async function POST(request: Request, { params }: Params) {
     });
   } else {
     // 대댓글: 부모가 같은 퀴즈·문항의 최상위 글이어야 한다 (2단 캡)
-    if (!body?.parentId) {
+    if (!parentId) {
       return jsonError("답글 대상이 필요합니다.", 400);
     }
-    const parent = await commentStore.findById(body.parentId);
+    const parent = await commentStore.findById(parentId);
     if (
       !parent ||
       parent.quizId !== quiz.id ||
@@ -110,24 +156,10 @@ export async function POST(request: Request, { params }: Params) {
       body: text,
       parentId: parent.id
     });
-
-    // 스레드 참여자(글쓴이 + 기존 답글 작성자)에게 푸시 — 응답을 막지 않게 백그라운드로
-    const participants = (await commentStore.threadParticipants(parent.id)).filter(
-      (w) => w !== session.wallet
+    void notifyThreadParticipants(parent.id, session.wallet, slug, questionIndex, text).catch(
+      () => {}
     );
-    const preview = text.length > 60 ? `${text.slice(0, 60)}…` : text;
-    void sendPushToWallets(participants, {
-      title: `Q${questionIndex + 1} 토론에 새 답글`,
-      body: preview,
-      url: `/quiz/${slug}`
-    }).catch(() => {});
   }
 
-  const admin = await isAdmin();
-  const comments = await commentStore.listForQuestion(quiz.id, questionIndex, {
-    viewerWallet: session.wallet,
-    adminWallets: getAdminWallets()
-  });
-
-  return NextResponse.json({ comments, isAdminViewer: admin });
+  return threadResponse(quiz.id, questionIndex, session.wallet);
 }

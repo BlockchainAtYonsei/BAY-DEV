@@ -34,47 +34,52 @@ type ViewOptions = {
   adminWallets: Set<string>;
 };
 
-/** 최상위 → 대댓글 2단 트리로 조립. 작성자는 지갑 주소로만 식별한다. */
-function buildTree(rows: CommentRow[], opts: ViewOptions): CommentNode[] {
-  const toNode = (row: CommentRow): CommentNode => {
-    const deleted = row.deletedAt !== null;
-    const node: CommentNode = {
-      id: row.id,
-      wallet: row.wallet,
-      body: deleted ? null : row.body,
-      deleted,
-      isSubmission: row.isSubmission,
-      isAdmin: opts.adminWallets.has(row.wallet),
-      isMine: opts.viewerWallet === row.wallet,
-      createdAt: row.createdAt.toISOString(),
-      replies: []
-    };
-    return node;
+/** DB 행 하나를 조회자 관점의 노드로 변환. 작성자는 지갑 주소로만 식별한다. */
+function toNode(row: CommentRow, opts: ViewOptions): CommentNode {
+  const deleted = row.deletedAt !== null;
+  return {
+    id: row.id,
+    wallet: row.wallet,
+    body: deleted ? null : row.body,
+    deleted,
+    isSubmission: row.isSubmission,
+    isAdmin: opts.adminWallets.has(row.wallet),
+    isMine: opts.viewerWallet === row.wallet,
+    createdAt: row.createdAt.toISOString(),
+    replies: []
   };
+}
 
-  const tops = rows.filter((r) => r.parentId === null);
+/** 대댓글을 부모 id별로 묶는다 */
+function groupReplies(rows: CommentRow[]): Map<string, CommentRow[]> {
   const byParent = new Map<string, CommentRow[]>();
-  for (const r of rows) {
-    if (r.parentId === null) continue;
-    const list = byParent.get(r.parentId) || [];
-    list.push(r);
-    byParent.set(r.parentId, list);
+  for (const row of rows) {
+    if (row.parentId === null) continue;
+    const list = byParent.get(row.parentId) || [];
+    list.push(row);
+    byParent.set(row.parentId, list);
   }
+  return byParent;
+}
 
-  return tops
-    // 최상위는 최신 글이 위로
+/** 삭제됐고 답글도 없는 최상위 글은 숨긴다 */
+function isVisibleTop(node: CommentNode): boolean {
+  return !(node.deleted && node.replies.length === 0);
+}
+
+/** 최상위 → 대댓글 2단 트리 조립 (최상위는 최신순, 대댓글은 대화순) */
+function buildTree(rows: CommentRow[], opts: ViewOptions): CommentNode[] {
+  const byParent = groupReplies(rows);
+  return rows
+    .filter((r) => r.parentId === null)
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .map((top) => {
-      const node = toNode(top);
-      const replies = (byParent.get(top.id) || [])
-        // 대댓글은 대화 순서대로(오래된 것부터)
+    .map((top) => ({
+      ...toNode(top, opts),
+      replies: (byParent.get(top.id) || [])
         .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-        .map(toNode);
-      node.replies = replies;
-      // 삭제됐지만 답글이 남은 글은 유지, 답글도 없이 삭제된 최상위 글은 숨긴다
-      return node;
-    })
-    .filter((node) => !(node.deleted && node.replies.length === 0));
+        .map((row) => toNode(row, opts))
+    }))
+    .filter(isVisibleTop);
 }
 
 export const commentStore = {
