@@ -1502,3 +1502,65 @@ td {
   padding: 0 12px;
   font-size: 13px;
 }
+
+/* 관리자 토론 뷰 */
+
+.adminCmtQuestion {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.adminCmtQuestion h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.adminCmtList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.adminCmt {
+  padding: 10px 12px;
+  border: 1px solid var(--field-line);
+  border-radius: 10px;
+  background: rgba(13, 20, 40, 0.45);
+}
+
+.adminCmtReply {
+  margin-left: 22px;
+  border-left: 3px solid rgba(77, 162, 255, 0.35);
+}
+
+.adminCmt .adminCmtList {
+  margin-top: 10px;
+}
+
+.adminCmtMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.adminCmtMeta small {
+  color: var(--muted);
+}
+
+.adminCmtBody {
+  margin: 6px 0 0;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: #c6d1ea;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

@@ -11,6 +11,7 @@ type Props = {
   busy: boolean;
   onEdit: (quiz: QuizListItem) => void;
   onResponses: (quiz: QuizListItem) => void;
+  onDiscussion: (quiz: QuizListItem) => void;
   onTogglePublished: (quiz: QuizListItem) => void;
   onRemove: (quiz: QuizListItem) => void;
 };
@@ -21,6 +22,7 @@ export default function QuizTable({
   busy,
   onEdit,
   onResponses,
+  onDiscussion,
   onTogglePublished,
   onRemove
 }: Props) {
@@ -66,6 +68,9 @@ export default function QuizTable({
                 </button>
                 <button className="ghostButton" type="button" onClick={() => onResponses(quiz)}>
                   응답 보기
+                </button>
+                <button className="ghostButton" type="button" onClick={() => onDiscussion(quiz)}>
+                  토론 보기
                 </button>
                 <button
                   className="ghostButton"

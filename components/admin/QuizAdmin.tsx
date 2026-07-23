@@ -10,6 +10,9 @@ import QuizEditorPanel, {
 import ResponseMatrix, {
   type ResponsesData
 } from "@/components/admin/quiz/ResponseMatrix";
+import DiscussionPanel, {
+  type DiscussionData
+} from "@/components/admin/quiz/DiscussionPanel";
 import { useAdminGate } from "@/hooks/useAdminGate";
 import { useAsyncStatus } from "@/hooks/useAsyncStatus";
 import { fetchJson } from "@/lib/client/http";
@@ -67,9 +70,11 @@ export default function QuizAdmin() {
   const { busy, status, run } = useAsyncStatus();
   const [editor, setEditor] = useState<QuizEditorState | null>(null);
   const [responsesFor, setResponsesFor] = useState<ResponsesData | null>(null);
+  const [discussionFor, setDiscussionFor] = useState<DiscussionData | null>(null);
 
   function openEditor(quiz?: QuizListItem) {
     setResponsesFor(null);
+    setDiscussionFor(null);
     setEditor(quiz ? toEditorState(quiz) : emptyEditor());
   }
 
@@ -121,6 +126,16 @@ export default function QuizAdmin() {
         questions: data.parsed.questions,
         responses: data.responses
       });
+      setDiscussionFor(null);
+      setEditor(null);
+    });
+  }
+
+  function openDiscussion(quiz: QuizListItem) {
+    run(async () => {
+      const data = await fetchJson<DiscussionData>(`/api/admin/quizzes/${quiz.id}/comments`);
+      setDiscussionFor(data);
+      setResponsesFor(null);
       setEditor(null);
     });
   }
@@ -152,6 +167,7 @@ export default function QuizAdmin() {
         busy={busy}
         onEdit={openEditor}
         onResponses={openResponses}
+        onDiscussion={openDiscussion}
         onTogglePublished={togglePublished}
         onRemove={removeQuiz}
       />
@@ -168,6 +184,10 @@ export default function QuizAdmin() {
 
       {responsesFor && (
         <ResponseMatrix data={responsesFor} onClose={() => setResponsesFor(null)} />
+      )}
+
+      {discussionFor && (
+        <DiscussionPanel data={discussionFor} onClose={() => setDiscussionFor(null)} />
       )}
     </main>
   );

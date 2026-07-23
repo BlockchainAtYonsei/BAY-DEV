@@ -82,6 +82,33 @@ function buildTree(rows: CommentRow[], opts: ViewOptions): CommentNode[] {
     .filter(isVisibleTop);
 }
 
+/** 관리자 뷰 노드 — 이름 포함. 관리자 API에서만 사용할 것. */
+export type AdminCommentNode = {
+  id: string;
+  wallet: string;
+  /** User 테이블에서 조회한 이름 (미등록이면 null) */
+  name: string | null;
+  body: string | null;
+  deleted: boolean;
+  isSubmission: boolean;
+  createdAt: string;
+  replies: AdminCommentNode[];
+};
+
+function toAdminNode(row: CommentRow, names: Map<string, string>): AdminCommentNode {
+  const deleted = row.deletedAt !== null;
+  return {
+    id: row.id,
+    wallet: row.wallet,
+    name: names.get(row.wallet) ?? null,
+    body: deleted ? null : row.body,
+    deleted,
+    isSubmission: row.isSubmission,
+    createdAt: row.createdAt.toISOString(),
+    replies: []
+  };
+}
+
 export const commentStore = {
   /** 특정 문항의 토론 트리 */
   async listForQuestion(
@@ -94,6 +121,39 @@ export const commentStore = {
     })) as CommentRow[];
 
     return buildTree(rows, opts);
+  },
+
+  /**
+   * 관리자용: 퀴즈 전체 토론을 문항별 트리로, 작성자 이름을 붙여 조회.
+   * 이름이 학생에게 새지 않도록 반드시 관리자 가드 뒤에서만 호출할 것.
+   */
+  async adminThreadsByQuestion(
+    quizId: string
+  ): Promise<Record<number, AdminCommentNode[]>> {
+    const rows = (await prisma.comment.findMany({ where: { quizId } })) as CommentRow[];
+    if (rows.length === 0) return {};
+
+    const wallets = [...new Set(rows.map((r) => r.wallet))];
+    const users = await prisma.user.findMany({ where: { wallet: { in: wallets } } });
+    const names = new Map(users.map((u) => [u.wallet, u.name]));
+
+    const byQuestion: Record<number, AdminCommentNode[]> = {};
+    const questionIndexes = [...new Set(rows.map((r) => r.questionIndex))];
+    for (const qi of questionIndexes) {
+      const qRows = rows.filter((r) => r.questionIndex === qi);
+      const byParent = groupReplies(qRows);
+      byQuestion[qi] = qRows
+        .filter((r) => r.parentId === null)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .map((top) => ({
+          ...toAdminNode(top, names),
+          replies: (byParent.get(top.id) || [])
+            .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+            .map((row) => toAdminNode(row, names))
+        }))
+        .filter((node) => !(node.deleted && node.replies.length === 0));
+    }
+    return byQuestion;
   },
 
   /** 문항별 댓글 수 (질문 인덱스 → 개수), 삭제 제외 */
