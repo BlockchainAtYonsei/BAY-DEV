@@ -219,39 +219,125 @@ StateDB→트라이→디스크
 ## 과제 ① — geth 빌드와 실행
 :라벨 과제 · 다음 주 목요일까지
 
-```bash
-# 1. 소스 받아서 빌드 (Go 1.23+ 필요)
-git clone https://github.com/ethereum/go-ethereum
-cd go-ethereum && make geth
+**0) 준비물 확인** — Go 1.23 이상과 git이 필요합니다.
 
-# 2. dev 모드로 로컬 체인 실행
-./build/bin/geth --dev --http \
-  --http.api eth,web3,net --verbosity 4
+```bash
+go version      # go1.23 이상이어야 한다
+git --version
 ```
 
-**dev 모드란?** 머지 이후 일반 geth는 CL이 있어야 블록을 만든다. 하지만 --dev 모드는 혼자서 즉시 블록을 만들고 잔액이 든 계정도 준다. 그래서 이 과제는 --dev로 한다. 메인넷 동기화 없이 오늘 배운 흐름을 그대로 볼 수 있는 실험실이다.
+Go가 없거나 버전이 낮으면 — macOS는 `brew install go`, 그 외는 go.dev/dl 에서 설치하세요.
+
+**1) 소스 받아서 빌드** — 컴퓨터에 따라 몇 분 걸립니다.
+
+```bash
+git clone https://github.com/ethereum/go-ethereum
+cd go-ethereum
+make geth
+```
+
+빌드가 끝나면 실행 파일이 생겼는지 확인합니다.
+
+```bash
+./build/bin/geth version    # 버전 정보가 출력되면 성공
+```
+
+**2) dev 모드로 로컬 체인 실행** — 이 터미널은 **켜둔 채로** 둡니다.
+
+```bash
+./build/bin/geth --dev --datadir ./devchain \
+  --http --http.api eth,web3,net,txpool --verbosity 4
+```
+
+`--datadir ./devchain`을 주는 이유: 이 옵션을 빼면 geth가 임시 폴더에 체인을 만들어서, 다음 단계에서 접속할 경로를 찾기 번거롭습니다. 경로를 고정해두면 편합니다.
+
+실행되면 로그에서 이 줄들을 찾아보세요.
 
 :::cards
-### ✓ 빌드 성공
-build/bin/geth 파일이 생겼다
-### ✓ 체인 가동
-로그에 HTTP server started 표시
-### ✓ 콘솔 접속
-geth attach로 JS 콘솔 진입
+### Starting Geth in ephemeral dev mode
+dev 모드로 떴다는 뜻
+### Using developer account address=0x…
+잔액이 잔뜩 든 계정이 자동으로 만들어졌다
+### IPC endpoint opened url=…/devchain/geth.ipc
+3단계에서 접속할 주소
+### HTTP server started endpoint=127.0.0.1:8545
+지갑·디앱이 붙는 RPC 창구 (2회차에서 볼 그 입구)
+:::
+
+:::callout
+**dev 모드란?** 머지 이후 일반 geth는 CL이 있어야 블록을 만든다. 하지만 `--dev`는 geth가 CL을 흉내 내는 코드를 내장하고 있어서 혼자 즉시 블록을 만들고, 잔액이 든 계정도 준다. 메인넷 동기화 없이 오늘 배운 흐름을 그대로 볼 수 있는 실험실이다.
 :::
 
 ## 과제 ② — 로컬에서 tx 보내보기
 :라벨 과제 · 다음 주 목요일까지
 
+**3) 콘솔 접속** — geth를 띄운 터미널은 그대로 두고, **새 터미널**을 엽니다.
+
+```bash
+cd go-ethereum
+./build/bin/geth attach ./devchain/geth.ipc
+```
+
+`>` 프롬프트가 뜨면 성공입니다. 여기부터는 자바스크립트 콘솔입니다.
+
+**4) 계정과 잔액 확인**
+
+```javascript
+eth.accounts                                              // 개발자 계정 하나가 보인다
+web3.fromWei(eth.getBalance(eth.accounts[0]), "ether")    // 잔액 (엄청 큼)
+eth.blockNumber                                           // 현재 블록 높이
+```
+
+**5) tx 보내기** — 아무 주소로 1 ETH를 보냅니다.
+
+```javascript
+var to = "0x000000000000000000000000000000000000dEaD";
+var txHash = eth.sendTransaction({
+  from: eth.accounts[0],
+  to: to,
+  value: web3.toWei(1, "ether")
+});
+txHash      // 0x… 이 해시를 복사해두세요
+```
+
+**6) 결과 확인** — dev 모드는 tx가 들어오면 즉시 블록을 만들기 때문에 바로 확인됩니다.
+
+```javascript
+eth.getTransaction(txHash)         // blockNumber가 채워져 있으면 블록에 담긴 것
+eth.getTransactionReceipt(txHash)  // status가 "0x1"이면 성공
+eth.blockNumber                    // 1 늘어나 있다
+web3.fromWei(eth.getBalance(to), "ether")   // 받은 주소 잔액이 1
+```
+
+**7) 서버 로그에서 tx 해시 추적** — geth를 띄워둔 터미널로 돌아가, 5단계에서 복사한 해시를 찾아보세요. 대략 이런 줄들이 보입니다 (geth 버전에 따라 문구는 조금 다를 수 있습니다).
+
 :::steps
-### 콘솔 접속
-다른 터미널에서 `geth attach <ipc 경로>`
-### tx 전송
-`eth.sendTransaction({from: eth.accounts[0], to: "0x...아무 주소", value: web3.toWei(1)})`
-### 로그에서 추적
-반환된 tx 해시가 로그에 등장하는 순간들을 찾는다. 접수(RPC)와 블록 포함
-### 일생과 대응
-각 로그 줄이 오늘 본 파이프라인의 어느 칸인지 메모해보기 (완벽하지 않아도 됨)
+### Submitted transaction hash=0x…
+내 tx가 RPC로 접수되어 txpool에 들어간 순간 — 2회차
+### Commit new sealing work · Successfully sealed new block txs=1
+제안자가 멤풀에서 tx를 골라 블록을 조립한 순간 — 5회차
+### Imported new chain segment (블록이 체인에 붙는 줄)
+블록이 실행·검증되고 상태가 확정된 순간 — 3·4회차
+:::
+
+각 로그 줄이 오늘 본 파이프라인의 어느 칸인지 메모해보세요. 완벽하지 않아도 됩니다.
+
+**끝낼 때** — geth 터미널에서 `Ctrl + C`. 체인을 완전히 지우려면 `rm -rf devchain`.
+
+## 막혔을 때
+:라벨 트러블슈팅
+
+:::cards
+### make: command not found
+macOS는 `xcode-select --install`로 명령줄 도구를 먼저 설치
+### go 버전이 낮다고 나올 때
+`brew upgrade go` 또는 go.dev/dl 에서 최신 설치 후 `go version` 재확인
+### address already in use
+8545 포트를 이미 쓰는 geth가 떠 있다. 그 터미널에서 Ctrl+C로 끄고 다시 실행
+### attach 시 no such file
+geth가 실행 중인지, `./devchain/geth.ipc` 경로가 맞는지 확인. 2단계에서 `--datadir`를 줬는지도 확인
+### insufficient funds · unknown account
+`from`에 `eth.accounts[0]`을 썼는지 확인. dev 모드 계정은 자동으로 잠금 해제되어 있다
 :::
 
 :::callout
